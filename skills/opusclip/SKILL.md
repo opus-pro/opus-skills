@@ -18,7 +18,8 @@ Run the bundled CLI at `scripts/opusclip`. All commands output JSON.
 
 ```
 opusclip create-project --url URL [options]   Create clips from a video URL
-opusclip get-clips --project ID               Get exportable clips
+opusclip get-clips --project ID [--summary]   Get exportable clips
+opusclip preview --project ID [--output PATH] Generate HTML preview and open in browser
 opusclip share-project --project ID           Set visibility (PUBLIC/DEFAULT)
 opusclip templates                            List brand templates
 opusclip upload --file PATH [options]         Upload local video + create project
@@ -57,8 +58,35 @@ Same flags as `create-project` plus `--file PATH`. Handles the full 4-step GCS u
 
 ```bash
 opusclip get-clips --project PROJECT_ID
+opusclip get-clips --project PROJECT_ID --summary
 opusclip get-clips --collection COLLECTION_ID
 ```
+
+| Flag | Description |
+|------|-------------|
+| `--project` | Project ID to fetch clips for |
+| `--collection` | Collection ID to fetch clips for |
+| `--summary` | Output condensed JSON with title, description, hashtags, scores, duration, and preview/export URLs (instead of full raw response) |
+
+When presenting clips to the user, always use `--summary` to get human-readable fields (title, description, hashtags, scores). Display clips with their title and description rather than just clip IDs.
+
+### preview
+
+Generate an HTML preview page with video players for all clips and open it in the browser.
+
+```bash
+opusclip preview --project PROJECT_ID
+opusclip preview --project PROJECT_ID --output /path/to/output.html
+opusclip preview --collection COLLECTION_ID
+```
+
+| Flag | Description |
+|------|-------------|
+| `--project` | Project ID |
+| `--collection` | Collection ID |
+| `--output` | Custom output path (default: `/tmp/opusclip-preview-{id}.html`) |
+
+The preview page shows clips sorted by score with inline video players, titles, descriptions, hashtags, and detailed AI scores (hook, coherence, connection, trend). Use this whenever the user wants to watch or preview their clips.
 
 ### collections
 
@@ -86,7 +114,9 @@ Statuses: `QUEUED` → `PROCESSING` → `CONCLUDED` / `FAILED`
 ```bash
 opusclip create-project --url "https://youtube.com/watch?v=VIDEO_ID"
 # Wait for processing, then:
-opusclip get-clips --project PROJECT_ID
+opusclip get-clips --project PROJECT_ID --summary
+# Preview clips in browser:
+opusclip preview --project PROJECT_ID
 ```
 
 ### Use ClipAnything with a custom prompt
