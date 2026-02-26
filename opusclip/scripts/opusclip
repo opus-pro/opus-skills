@@ -1,0 +1,516 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# OpusClip CLI — wrapper for the OpusClip API
+# https://help.opus.pro/api-reference/overview
+#
+# Requires: curl, jq
+# Auth: Set OPUSCLIP_API_KEY environment variable
+
+VERSION="1.0.0"
+API_BASE="https://api.opus.pro/api"
+
+# ── Helpers ──────────────────────────────────────────────────────────────────
+
+die()  { echo "error: $*" >&2; exit 1; }
+need() { command -v "$1" >/dev/null 2>&1 || die "$1 is required but not installed"; }
+
+need curl
+need jq
+
+api_key() {
+  [[ -n "${OPUSCLIP_API_KEY:-}" ]] || die "OPUSCLIP_API_KEY is not set"
+  echo "$OPUSCLIP_API_KEY"
+}
+
+# Standard headers for authenticated requests
+auth_headers() {
+  echo -H "Authorization: Bearer $(api_key)" -H "Content-Type: application/json" -H "Accept: application/json"
+}
+
+# Pretty-print JSON or pass through raw
+output() {
+  if [[ "${RAW:-}" == "1" ]]; then
+    cat
+  else
+    jq .
+  fi
+}
+
+# ── API calls ────────────────────────────────────────────────────────────────
+
+# POST with JSON body
+api_post() {
+  local url="$1"; shift
+  local body="$1"; shift
+  curl -sS -X POST "$url" \
+    -H "Authorization: Bearer $(api_key)" \
+    -H "Content-Type: application/json" \
+    -H "Accept: application/json" \
+    -d "$body" "$@"
+}
+
+# GET with query string
+api_get() {
+  local url="$1"; shift
+  curl -sS -X GET "$url" \
+    -H "Authorization: Bearer $(api_key)" \
+    -H "Accept: application/json" \
+    "$@"
+}
+
+# DELETE
+api_delete() {
+  local url="$1"; shift
+  curl -sS -X DELETE "$url" \
+    -H "Authorization: Bearer $(api_key)" \
+    -H "Accept: application/json" \
+    "$@"
+}
+
+# ── Commands ─────────────────────────────────────────────────────────────────
+
+cmd_create_project() {
+  local video_url="" template_id="" model="" genre="" keywords="" custom_prompt=""
+  local aspect="portrait" skip_curate="false" source_lang="" webhook_url=""
+  local clip_durations="" range_start="" range_end="" title=""
+  local remove_filler="false"
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --url)             video_url="$2"; shift 2 ;;
+      --template)        template_id="$2"; shift 2 ;;
+      --model)           model="$2"; shift 2 ;;
+      --genre)           genre="$2"; shift 2 ;;
+      --keywords)        keywords="$2"; shift 2 ;;
+      --prompt)          custom_prompt="$2"; shift 2 ;;
+      --aspect)          aspect="$2"; shift 2 ;;
+      --skip-curate)     skip_curate="true"; shift ;;
+      --lang)            source_lang="$2"; shift 2 ;;
+      --webhook)         webhook_url="$2"; shift 2 ;;
+      --durations)       clip_durations="$2"; shift 2 ;;
+      --range-start)     range_start="$2"; shift 2 ;;
+      --range-end)       range_end="$2"; shift 2 ;;
+      --title)           title="$2"; shift 2 ;;
+      --remove-filler)   remove_filler="true"; shift ;;
+      *) die "create-project: unknown flag '$1'" ;;
+    esac
+  done
+
+  [[ -n "$video_url" ]] || die "create-project: --url is required"
+
+  # Build JSON payload with jq
+  local payload
+  payload=$(jq -n \
+    --arg videoUrl "$video_url" \
+    '{videoUrl: $videoUrl}')
+
+  if [[ -n "$template_id" ]]; then
+    payload=$(echo "$payload" | jq --arg v "$template_id" '. + {brandTemplateId: $v}')
+  fi
+
+  if [[ -n "$title" ]]; then
+    payload=$(echo "$payload" | jq --arg v "$title" '. + {uploadedVideoAttr: {title: $v}}')
+  fi
+
+  # curationPref
+  local curation="{}"
+  if [[ -n "$model" ]]; then
+    curation=$(echo "$curation" | jq --arg v "$model" '. + {model: $v}')
+  fi
+  if [[ -n "$genre" ]]; then
+    curation=$(echo "$curation" | jq --arg v "$genre" '. + {genre: $v}')
+  fi
+  if [[ -n "$keywords" ]]; then
+    curation=$(echo "$curation" | jq --arg v "$keywords" '. + {topicKeywords: ($v | split(","))}')
+  fi
+  if [[ -n "$custom_prompt" ]]; then
+    curation=$(echo "$curation" | jq --arg v "$custom_prompt" '. + {customPrompt: $v}')
+  fi
+  if [[ -n "$clip_durations" ]]; then
+    curation=$(echo "$curation" | jq --arg v "$clip_durations" '. + {clipDurations: ($v | split(",") | map(tonumber))}')
+  fi
+  if [[ "$skip_curate" == "true" ]]; then
+    curation=$(echo "$curation" | jq '. + {skipCurate: true}')
+  fi
+  if [[ -n "$range_start" || -n "$range_end" ]]; then
+    local range="{}"
+    [[ -n "$range_start" ]] && range=$(echo "$range" | jq --arg v "$range_start" '. + {startSec: ($v | tonumber)}')
+    [[ -n "$range_end" ]]   && range=$(echo "$range" | jq --arg v "$range_end" '. + {endSec: ($v | tonumber)}')
+    curation=$(echo "$curation" | jq --argjson r "$range" '. + {range: $r}')
+  fi
+  if [[ "$curation" != "{}" ]]; then
+    payload=$(echo "$payload" | jq --argjson c "$curation" '. + {curationPref: $c}')
+  fi
+
+  # renderPref
+  local render="{}"
+  render=$(echo "$render" | jq --arg v "$aspect" '. + {layoutAspectRatio: $v}')
+  if [[ "$remove_filler" == "true" ]]; then
+    render=$(echo "$render" | jq '. + {quickstartConfig: {enableRemoveFillerWords: true}}')
+  fi
+  payload=$(echo "$payload" | jq --argjson r "$render" '. + {renderPref: $r}')
+
+  # importPreference
+  if [[ -n "$source_lang" ]]; then
+    payload=$(echo "$payload" | jq --arg v "$source_lang" '. + {importPreference: {sourceLang: $v}}')
+  fi
+
+  # conclusionActions
+  if [[ -n "$webhook_url" ]]; then
+    payload=$(echo "$payload" | jq --arg v "$webhook_url" '. + {conclusionActions: [{type: "WEBHOOK", url: $v}]}')
+  fi
+
+  api_post "$API_BASE/clip-projects" "$payload" | output
+}
+
+cmd_get_clips() {
+  local project_id="" collection_id=""
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --project)    project_id="$2"; shift 2 ;;
+      --collection) collection_id="$2"; shift 2 ;;
+      *) die "get-clips: unknown flag '$1'" ;;
+    esac
+  done
+
+  local url
+  if [[ -n "$project_id" ]]; then
+    url="$API_BASE/exportable-clips?q=findByProjectId&projectId=$project_id"
+  elif [[ -n "$collection_id" ]]; then
+    url="$API_BASE/exportable-clips?q=findByCollectionId&collectionId=$collection_id"
+  else
+    die "get-clips: --project or --collection is required"
+  fi
+
+  api_get "$url" | output
+}
+
+cmd_share_project() {
+  local project_id="" visibility="PUBLIC"
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --project)    project_id="$2"; shift 2 ;;
+      --visibility) visibility="$2"; shift 2 ;;
+      *) die "share-project: unknown flag '$1'" ;;
+    esac
+  done
+
+  [[ -n "$project_id" ]] || die "share-project: --project is required"
+
+  local payload
+  payload=$(jq -n --arg v "$visibility" '{visibility: $v}')
+
+  api_post "$API_BASE/clip-projects/$project_id/update-visibility" "$payload" | output
+}
+
+cmd_templates() {
+  api_get "$API_BASE/brand-templates?q=mine" | output
+}
+
+cmd_upload() {
+  local file="" title="" template_id="" model="" genre="" keywords="" custom_prompt=""
+  local aspect="portrait" skip_curate="false" source_lang="" webhook_url=""
+  local clip_durations="" range_start="" range_end="" remove_filler="false"
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --file)            file="$2"; shift 2 ;;
+      --title)           title="$2"; shift 2 ;;
+      --template)        template_id="$2"; shift 2 ;;
+      --model)           model="$2"; shift 2 ;;
+      --genre)           genre="$2"; shift 2 ;;
+      --keywords)        keywords="$2"; shift 2 ;;
+      --prompt)          custom_prompt="$2"; shift 2 ;;
+      --aspect)          aspect="$2"; shift 2 ;;
+      --skip-curate)     skip_curate="true"; shift ;;
+      --lang)            source_lang="$2"; shift 2 ;;
+      --webhook)         webhook_url="$2"; shift 2 ;;
+      --durations)       clip_durations="$2"; shift 2 ;;
+      --range-start)     range_start="$2"; shift 2 ;;
+      --range-end)       range_end="$2"; shift 2 ;;
+      --remove-filler)   remove_filler="true"; shift ;;
+      *) die "upload: unknown flag '$1'" ;;
+    esac
+  done
+
+  [[ -n "$file" ]] || die "upload: --file is required"
+  [[ -f "$file" ]] || die "upload: file '$file' not found"
+
+  echo "Step 1/4: Requesting upload link..." >&2
+  local upload_resp
+  upload_resp=$(api_post "$API_BASE/upload-links" '{"video":{"usecase":"LocalUpload"}}')
+
+  local gcs_url upload_id
+  gcs_url=$(echo "$upload_resp" | jq -r '.url')
+  upload_id=$(echo "$upload_resp" | jq -r '.uploadId')
+
+  [[ "$gcs_url" != "null" ]] || die "upload: failed to get upload URL. Response: $upload_resp"
+
+  echo "Step 2/4: Initiating resumable upload session..." >&2
+  local session_url
+  session_url=$(curl -sS -D - -o /dev/null -X POST "$gcs_url" \
+    -H "x-goog-resumable: start" \
+    -H "Content-Length: 0" | grep -i "^location:" | tr -d '\r' | sed 's/^[Ll]ocation: //')
+
+  [[ -n "$session_url" ]] || die "upload: failed to get resumable session URL"
+
+  echo "Step 3/4: Uploading video file..." >&2
+  curl -sS -X PUT "$session_url" \
+    -H "Content-Type: application/octet-stream" \
+    --data-binary "@$file" > /dev/null
+
+  echo "Step 4/4: Creating clip project..." >&2
+  # Build args for create-project, reusing the upload_id as the video URL
+  local args=(--url "$upload_id")
+  [[ -n "$title" ]]          && args+=(--title "$title")
+  [[ -n "$template_id" ]]    && args+=(--template "$template_id")
+  [[ -n "$model" ]]          && args+=(--model "$model")
+  [[ -n "$genre" ]]          && args+=(--genre "$genre")
+  [[ -n "$keywords" ]]       && args+=(--keywords "$keywords")
+  [[ -n "$custom_prompt" ]]  && args+=(--prompt "$custom_prompt")
+  [[ "$aspect" != "portrait" ]] && args+=(--aspect "$aspect")
+  [[ "$skip_curate" == "true" ]] && args+=(--skip-curate)
+  [[ -n "$source_lang" ]]    && args+=(--lang "$source_lang")
+  [[ -n "$webhook_url" ]]    && args+=(--webhook "$webhook_url")
+  [[ -n "$clip_durations" ]] && args+=(--durations "$clip_durations")
+  [[ -n "$range_start" ]]    && args+=(--range-start "$range_start")
+  [[ -n "$range_end" ]]      && args+=(--range-end "$range_end")
+  [[ "$remove_filler" == "true" ]] && args+=(--remove-filler)
+
+  cmd_create_project "${args[@]}"
+}
+
+# ── Collections ──────────────────────────────────────────────────────────────
+
+cmd_collections() {
+  local subcmd="${1:-list}"; shift 2>/dev/null || true
+
+  case "$subcmd" in
+    list)
+      local query="mine" content_id=""
+      while [[ $# -gt 0 ]]; do
+        case "$1" in
+          --content-id) query="findByContentId"; content_id="$2"; shift 2 ;;
+          *) die "collections list: unknown flag '$1'" ;;
+        esac
+      done
+      local url="$API_BASE/collections?q=$query"
+      [[ -n "$content_id" ]] && url="$url&contentId=$content_id"
+      api_get "$url" | output
+      ;;
+
+    create)
+      local name=""
+      while [[ $# -gt 0 ]]; do
+        case "$1" in
+          --name) name="$2"; shift 2 ;;
+          *) die "collections create: unknown flag '$1'" ;;
+        esac
+      done
+      [[ -n "$name" ]] || die "collections create: --name is required"
+      local payload
+      payload=$(jq -n --arg v "$name" '{collectionName: $v}')
+      api_post "$API_BASE/collections" "$payload" | output
+      ;;
+
+    delete)
+      local collection_id=""
+      while [[ $# -gt 0 ]]; do
+        case "$1" in
+          --id) collection_id="$2"; shift 2 ;;
+          *) die "collections delete: unknown flag '$1'" ;;
+        esac
+      done
+      [[ -n "$collection_id" ]] || die "collections delete: --id is required"
+      api_delete "$API_BASE/collections/$collection_id" | output
+      ;;
+
+    export)
+      local collection_id=""
+      while [[ $# -gt 0 ]]; do
+        case "$1" in
+          --id) collection_id="$2"; shift 2 ;;
+          *) die "collections export: unknown flag '$1'" ;;
+        esac
+      done
+      [[ -n "$collection_id" ]] || die "collections export: --id is required"
+      api_post "$API_BASE/collections/$collection_id/export" "{}" | output
+      ;;
+
+    add-clip)
+      local collection_id="" content_id=""
+      while [[ $# -gt 0 ]]; do
+        case "$1" in
+          --id)         collection_id="$2"; shift 2 ;;
+          --content-id) content_id="$2"; shift 2 ;;
+          *) die "collections add-clip: unknown flag '$1'" ;;
+        esac
+      done
+      [[ -n "$collection_id" ]] || die "collections add-clip: --id is required"
+      [[ -n "$content_id" ]]    || die "collections add-clip: --content-id is required"
+      local payload
+      payload=$(jq -n --arg cid "$collection_id" --arg xid "$content_id" \
+        '{collectionId: $cid, contentId: $xid}')
+      api_post "$API_BASE/collection-contents" "$payload" | output
+      ;;
+
+    remove-clip)
+      local collection_id="" content_id=""
+      while [[ $# -gt 0 ]]; do
+        case "$1" in
+          --id)         collection_id="$2"; shift 2 ;;
+          --content-id) content_id="$2"; shift 2 ;;
+          *) die "collections remove-clip: unknown flag '$1'" ;;
+        esac
+      done
+      [[ -n "$collection_id" ]] || die "collections remove-clip: --id is required"
+      [[ -n "$content_id" ]]    || die "collections remove-clip: --content-id is required"
+      local payload
+      payload=$(jq -n --arg cid "$collection_id" --arg xid "$content_id" \
+        '{q: "findByCollectionIdAndContentId", collectionId: $cid, contentId: $xid}')
+      api_post "$API_BASE/collection-contents/delete-collection-contents" "$payload" | output
+      ;;
+
+    *)
+      die "collections: unknown subcommand '$subcmd' (use list|create|delete|export|add-clip|remove-clip)"
+      ;;
+  esac
+}
+
+# ── Censor ───────────────────────────────────────────────────────────────────
+
+cmd_censor() {
+  local subcmd="${1:-}"; shift 2>/dev/null || true
+
+  case "$subcmd" in
+    create)
+      local project_id="" clip_id="" beep="false"
+      while [[ $# -gt 0 ]]; do
+        case "$1" in
+          --project) project_id="$2"; shift 2 ;;
+          --clip)    clip_id="$2"; shift 2 ;;
+          --beep)    beep="true"; shift ;;
+          *) die "censor create: unknown flag '$1'" ;;
+        esac
+      done
+      [[ -n "$project_id" ]] || die "censor create: --project is required"
+      [[ -n "$clip_id" ]]    || die "censor create: --clip is required"
+      local payload
+      payload=$(jq -n --arg pid "$project_id" --arg cid "$clip_id" --argjson beep "$beep" \
+        '{projectId: $pid, clipId: $cid, options: {beepSound: $beep}}')
+      api_post "$API_BASE/censor-jobs" "$payload" | output
+      ;;
+
+    status)
+      local job_id=""
+      while [[ $# -gt 0 ]]; do
+        case "$1" in
+          --job) job_id="$2"; shift 2 ;;
+          *) die "censor status: unknown flag '$1'" ;;
+        esac
+      done
+      [[ -n "$job_id" ]] || die "censor status: --job is required"
+      api_get "$API_BASE/censor-jobs/$job_id" | output
+      ;;
+
+    *)
+      die "censor: unknown subcommand '$subcmd' (use create|status)"
+      ;;
+  esac
+}
+
+# ── Usage ────────────────────────────────────────────────────────────────────
+
+usage() {
+  cat <<EOF
+opusclip $VERSION — OpusClip API CLI
+
+USAGE
+  opusclip <command> [options]
+
+COMMANDS
+  create-project    Create a clip project from a video URL
+  get-clips         Get exportable clips for a project or collection
+  share-project     Update project visibility (PUBLIC / DEFAULT)
+  templates         List available brand templates
+  upload            Upload a local video file and create a clip project
+  collections       Manage collections (list|create|delete|export|add-clip|remove-clip)
+  censor            Manage censor jobs (create|status)
+  help              Show this help message
+
+ENVIRONMENT
+  OPUSCLIP_API_KEY  Required. Your API key from https://clip.opus.pro/dashboard
+
+GLOBAL FLAGS
+  --raw             Output raw JSON without pretty-printing
+
+EXAMPLES
+  # Create a project from a YouTube URL
+  opusclip create-project --url "https://youtube.com/watch?v=..." --aspect portrait
+
+  # Create a project with ClipAnything model and custom prompt
+  opusclip create-project --url "https://youtube.com/watch?v=..." \\
+    --model ClipAnything --prompt "Find the funniest moments"
+
+  # Get clips from a project
+  opusclip get-clips --project PROJECT_ID
+
+  # Upload a local video and clip it
+  opusclip upload --file video.mp4 --title "My Video" --durations "30,60"
+
+  # List brand templates
+  opusclip templates
+
+  # Share a project publicly
+  opusclip share-project --project PROJECT_ID --visibility PUBLIC
+
+  # Create and manage a collection
+  opusclip collections create --name "Best Clips"
+  opusclip collections add-clip --id COLLECTION_ID --content-id PROJECT_ID.CLIP_ID
+  opusclip collections export --id COLLECTION_ID
+
+  # Censor profanity in a clip
+  opusclip censor create --project PROJECT_ID --clip CLIP_ID --beep
+  opusclip censor status --job JOB_ID
+
+For full API docs: https://help.opus.pro/api-reference/overview
+EOF
+}
+
+# ── Main ─────────────────────────────────────────────────────────────────────
+
+main() {
+  RAW=0
+
+  # Extract global flags
+  local args=()
+  for arg in "$@"; do
+    case "$arg" in
+      --raw) RAW=1 ;;
+      *)     args+=("$arg") ;;
+    esac
+  done
+
+  set -- "${args[@]+"${args[@]}"}"
+
+  local cmd="${1:-help}"
+  shift 2>/dev/null || true
+
+  case "$cmd" in
+    create-project) cmd_create_project "$@" ;;
+    get-clips)      cmd_get_clips "$@" ;;
+    share-project)  cmd_share_project "$@" ;;
+    templates)      cmd_templates "$@" ;;
+    upload)         cmd_upload "$@" ;;
+    collections)    cmd_collections "$@" ;;
+    censor)         cmd_censor "$@" ;;
+    help|--help|-h) usage ;;
+    version|--version|-v) echo "opusclip $VERSION" ;;
+    *) die "unknown command '$cmd'. Run 'opusclip help' for usage." ;;
+  esac
+}
+
+main "$@"
