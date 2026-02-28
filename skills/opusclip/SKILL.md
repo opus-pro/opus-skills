@@ -17,20 +17,25 @@ Turn long-form videos into short clips via the OpusClip API.
 Run the bundled CLI at `scripts/opusclip`. All commands output JSON.
 
 ```
-opusclip create-project --url URL [options]   Create clips from a video URL
-opusclip get-clips --project ID [--summary]   Get exportable clips
+opusclip submit --url URL [options]           Submit video for clipping (alias: create-project)
+opusclip list --project ID [--summary]        List clips (alias: get-clips)
+opusclip describe --project ID --clip CID     Get clip details (transcript, layout info)
+opusclip storyboard --project ID --clip CID   Generate 2x2 frame preview (requires ffmpeg)
+opusclip trim --project ID --clip CID --start S --end E  Local trim (requires ffmpeg)
 opusclip preview --project ID [--output PATH] Generate HTML preview and open in browser
-opusclip share-project --project ID           Set visibility (PUBLIC/DEFAULT)
+opusclip share --project ID                   Share project (alias: share-project)
 opusclip templates                            List brand templates
 opusclip upload --file PATH [options]         Upload local video + create project
 opusclip collections <sub> [options]          Manage collections
 opusclip censor <sub> [options]               Censor profanity in clips
 ```
 
-### create-project
+### submit
+
+Alias: `create-project`
 
 ```bash
-opusclip create-project --url "https://youtube.com/watch?v=..." [options]
+opusclip submit --url "https://youtube.com/watch?v=..." [options]
 ```
 
 | Flag | Description |
@@ -52,14 +57,16 @@ opusclip create-project --url "https://youtube.com/watch?v=..." [options]
 
 ### upload
 
-Same flags as `create-project` plus `--file PATH`. Handles the full 4-step GCS upload flow automatically.
+Same flags as `submit` plus `--file PATH`. Handles the full 4-step GCS upload flow automatically.
 
-### get-clips
+### list
+
+Alias: `get-clips`
 
 ```bash
-opusclip get-clips --project PROJECT_ID
-opusclip get-clips --project PROJECT_ID --summary
-opusclip get-clips --collection COLLECTION_ID
+opusclip list --project PROJECT_ID
+opusclip list --project PROJECT_ID --summary
+opusclip list --collection COLLECTION_ID
 ```
 
 | Flag | Description |
@@ -88,6 +95,18 @@ opusclip preview --collection COLLECTION_ID
 
 The preview page shows clips sorted by score with inline video players, titles, descriptions, hashtags, and detailed AI scores (hook, coherence, connection, trend). Use this whenever the user wants to watch or preview their clips.
 
+### share
+
+Alias: `share-project`
+
+```bash
+opusclip share --project PROJECT_ID
+```
+
+| Flag | Description |
+|------|-------------|
+| `--project` | (required) Project ID |
+
 ### collections
 
 ```bash
@@ -108,20 +127,73 @@ opusclip censor status --job JOB_ID
 
 Statuses: `QUEUED` → `PROCESSING` → `CONCLUDED` / `FAILED`
 
+### describe
+
+Get structured information about a clip. Use this to understand clip content without watching the video.
+
+```bash
+opusclip describe --project PROJECT_ID --clip CLIP_ID
+opusclip describe --transcript --project PROJECT_ID --clip CLIP_ID
+opusclip describe --layout --project PROJECT_ID --clip CLIP_ID
+```
+
+| Flag | Description |
+|------|-------------|
+| `--project` | (required) Project ID |
+| `--clip` | (required) Clip ID |
+| `--transcript` | Show only transcript text |
+| `--layout` | Show only layout/framing info |
+
+Without `--transcript` or `--layout`, shows both. Use `--transcript` when you need to understand what was said. Use `--layout` to check current framing before suggesting layout changes.
+
+### storyboard
+
+Generate a 2x2 frame grid image from a clip's preview video. Requires `ffmpeg`.
+
+```bash
+opusclip storyboard --project PROJECT_ID --clip CLIP_ID
+opusclip storyboard --project PROJECT_ID --clip CLIP_ID --output /path/to/output.jpg
+```
+
+| Flag | Description |
+|------|-------------|
+| `--project` | (required) Project ID |
+| `--clip` | (required) Clip ID |
+| `--output` | Custom output path (default: `/tmp/opusclip-storyboard-{clipId}.jpg`) |
+
+Opens the image automatically on macOS/Linux. Use this for quick visual review of a clip's content.
+
+### trim
+
+Trim a clip's preview video locally. Requires `ffmpeg`.
+
+```bash
+opusclip trim --project PROJECT_ID --clip CLIP_ID --start 3 --end 50
+opusclip trim --project PROJECT_ID --clip CLIP_ID --start 3 --end 50 --output trimmed.mp4
+```
+
+| Flag | Description |
+|------|-------------|
+| `--project` | (required) Project ID |
+| `--clip` | (required) Clip ID |
+| `--start` | (required) Start time in seconds |
+| `--end` | (required) End time in seconds |
+| `--output` | Custom output path (default: `/tmp/opusclip-trimmed-{clipId}.mp4`) |
+
 ## Common Workflows
 
 ### Clip a YouTube video
 ```bash
-opusclip create-project --url "https://youtube.com/watch?v=VIDEO_ID"
+opusclip submit --url "https://youtube.com/watch?v=VIDEO_ID"
 # Wait for processing, then:
-opusclip get-clips --project PROJECT_ID --summary
+opusclip list --project PROJECT_ID --summary
 # Preview clips in browser:
 opusclip preview --project PROJECT_ID
 ```
 
 ### Use ClipAnything with a custom prompt
 ```bash
-opusclip create-project \
+opusclip submit \
   --url "https://youtube.com/watch?v=VIDEO_ID" \
   --model ClipAnything \
   --prompt "Find the most emotional moments" \
@@ -131,10 +203,25 @@ opusclip create-project \
 ### Upload a local video, clip, and organize
 ```bash
 opusclip upload --file video.mp4 --title "Interview" --model ClipBasic
-opusclip get-clips --project PROJECT_ID
+opusclip list --project PROJECT_ID
 opusclip collections create --name "Best Clips"
 opusclip collections add-clip --id COL_ID --content-id PROJECT_ID.CLIP_ID
 opusclip collections export --id COL_ID
+```
+
+### Clip, curate, and share
+```bash
+opusclip submit --url "https://youtube.com/watch?v=..."
+opusclip list --project PROJECT_ID --summary
+
+# Understand clip content
+opusclip describe --transcript --project PROJECT_ID --clip CLIP_ID
+
+# Visual review
+opusclip storyboard --project PROJECT_ID --clip CLIP_ID
+
+# Share
+opusclip share --project PROJECT_ID
 ```
 
 ## Constraints
