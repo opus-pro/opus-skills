@@ -8,7 +8,7 @@ set -euo pipefail
 # Auth: Set OPUSCLIP_API_KEY environment variable
 
 VERSION="1.0.0"
-API_BASE="https://api.opus.pro/api"
+API_BASE="${OPUSCLIP_API_URL:-https://api.opus.pro/api}"
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -28,14 +28,19 @@ auth_headers() {
   echo -H "Authorization: Bearer $(api_key)" -H "Content-Type: application/json" -H "Accept: application/json"
 }
 
-# Pretty-print JSON or pass through raw
-output() {
-  if [[ "${RAW:-}" == "1" ]]; then
-    cat
-  else
-    jq .
-  fi
-}
+# Pretty-print JSON
+output() { jq .; }
+
+EXTRA_HEADER_FLAGS=()
+if [[ -n "${OPUSCLIP_EXTRA_HEADERS:-}" ]]; then
+  IFS=';' read -ra _hdr_parts <<< "$OPUSCLIP_EXTRA_HEADERS"
+  for _h in "${_hdr_parts[@]}"; do
+    _h="${_h#"${_h%%[![:space:]]*}"}"
+    _h="${_h%"${_h##*[![:space:]]}"}"
+    [[ -n "$_h" ]] && EXTRA_HEADER_FLAGS+=(-H "$_h")
+  done
+  unset _hdr_parts _h
+fi
 
 # ── API calls ────────────────────────────────────────────────────────────────
 
@@ -47,6 +52,7 @@ api_post() {
     -H "Authorization: Bearer $(api_key)" \
     -H "Content-Type: application/json" \
     -H "Accept: application/json" \
+    ${EXTRA_HEADER_FLAGS[@]+"${EXTRA_HEADER_FLAGS[@]}"} \
     -d "$body" "$@"
 }
 
@@ -56,6 +62,7 @@ api_get() {
   curl -sS -X GET "$url" \
     -H "Authorization: Bearer $(api_key)" \
     -H "Accept: application/json" \
+    ${EXTRA_HEADER_FLAGS[@]+"${EXTRA_HEADER_FLAGS[@]}"} \
     "$@"
 }
 
@@ -65,6 +72,7 @@ api_delete() {
   curl -sS -X DELETE "$url" \
     -H "Authorization: Bearer $(api_key)" \
     -H "Accept: application/json" \
+    ${EXTRA_HEADER_FLAGS[@]+"${EXTRA_HEADER_FLAGS[@]}"} \
     "$@"
 }
 
@@ -185,8 +193,22 @@ cmd_get_clips() {
     die "get-clips: --project or --collection is required"
   fi
 
+  local filter='[.data[] | {
+    id: .id,
+    rank: .rank,
+    score: .score,
+    title: .title,
+    description: .description,
+    hashtags: .hashtags,
+    duration_sec: ((.durationMs // 0) / 1000 | round),
+    is_bonus: .isBonusClip,
+    preview_url: .uriForPreview,
+    export_url: .uriForExport,
+    thumbnail_url: .uriForThumbnail
+  }]'
+
   if [[ "$summary" == "true" ]]; then
-    api_get "$url" | jq '[.data[] | {
+    filter='[.data[] | {
       id: .id,
       rank: .rank,
       score: .score,
@@ -194,18 +216,14 @@ cmd_get_clips() {
       description: .description,
       hashtags: .hashtags,
       duration_sec: ((.durationMs // 0) / 1000 | round),
-      is_bonus: .isBonusClip,
       hook_score: .judgeResult.hookScore,
       coherence_score: .judgeResult.coherenceScore,
       connection_score: .judgeResult.connectionScore,
-      trend_score: .judgeResult.trendScore,
-      preview_url: .uriForPreview,
-      export_url: .uriForExport,
-      thumbnail_url: .uriForThumbnail
+      trend_score: .judgeResult.trendScore
     }]'
-  else
-    api_get "$url" | output
   fi
+
+  api_get "$url" | jq "$filter"
 }
 
 cmd_share_project() {
@@ -443,6 +461,199 @@ cmd_censor() {
   esac
 }
 
+# ── Describe ──────────────────────────────────────────────────────────────
+
+cmd_describe() {
+  local project_id="" clip_id="" show_transcript="false" show_layout="false"
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --project)    project_id="$2"; shift 2 ;;
+      --clip)       clip_id="$2"; shift 2 ;;
+      --transcript) show_transcript="true"; shift ;;
+      --layout)     show_layout="true"; shift ;;
+      *) die "describe: unknown flag '$1'" ;;
+    esac
+  done
+
+  [[ -n "$project_id" ]] || die "describe: --project is required"
+  [[ -n "$clip_id" ]]    || die "describe: --clip is required"
+
+  local clips_json
+  clips_json=$(api_get "$API_BASE/exportable-clips?q=findByProjectId&projectId=$project_id")
+
+  if [[ "$show_transcript" == "true" ]]; then
+    echo "$clips_json" | jq --arg cid "$clip_id" \
+      '.data[] | select(.curationId == $cid or .id == $cid) | {
+        id: .id,
+        title: .title,
+        transcript: .text
+      }'
+  fi
+
+  if [[ "$show_layout" == "true" ]]; then
+    echo "$clips_json" | jq --arg cid "$clip_id" \
+      '.data[] | select(.curationId == $cid or .id == $cid) | {
+        id: .id,
+        layout: .renderPref.layoutType,
+        aspect: .renderPref.layoutAspectRatio
+      }'
+  fi
+
+  # Default: show both
+  if [[ "$show_transcript" == "false" && "$show_layout" == "false" ]]; then
+    echo "$clips_json" | jq --arg cid "$clip_id" \
+      '.data[] | select(.curationId == $cid or .id == $cid) | {
+        id: .id,
+        title: .title,
+        description: .description,
+        transcript: .text,
+        hashtags: .hashtags,
+        keywords: .clipKeywords,
+        duration_sec: ((.durationMs // 0) / 1000 | round),
+        score: .score
+      }'
+  fi
+}
+
+# ── Storyboard ────────────────────────────────────────────────────────────
+
+cmd_storyboard() {
+  local project_id="" clip_id="" out_file=""
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --project) project_id="$2"; shift 2 ;;
+      --clip)    clip_id="$2"; shift 2 ;;
+      --output)  out_file="$2"; shift 2 ;;
+      *) die "storyboard: unknown flag '$1'" ;;
+    esac
+  done
+
+  [[ -n "$project_id" ]] || die "storyboard: --project is required"
+  [[ -n "$clip_id" ]]    || die "storyboard: --clip is required"
+  need ffmpeg
+
+  local clips_json
+  clips_json=$(api_get "$API_BASE/exportable-clips?q=findByProjectId&projectId=$project_id")
+
+  local preview_url dur_int
+  preview_url=$(echo "$clips_json" | jq -r \
+    --arg cid "$clip_id" \
+    '.data[] | select(.curationId == $cid or .id == $cid) | .uriForPreview // empty' \
+    | head -1)
+  dur_int=$(echo "$clips_json" | jq -r \
+    --arg cid "$clip_id" \
+    '.data[] | select(.curationId == $cid or .id == $cid) | ((.durationMs // 0) / 1000 | floor)' \
+    | head -1)
+
+  [[ -n "$preview_url" ]] || die "storyboard: no preview video found for clip $clip_id"
+  [[ "$dur_int" -gt 0 ]] 2>/dev/null || die "storyboard: could not determine clip duration"
+
+  local tmp_video="/tmp/opusclip-storyboard-${clip_id}.mp4"
+  echo "Downloading preview video..." >&2
+  curl -sS -o "$tmp_video" "$preview_url"
+
+  # 4 evenly spaced points (center of each quarter)
+  local t1=$(( dur_int * 12 / 100 ))
+  local t2=$(( dur_int * 37 / 100 ))
+  local t3=$(( dur_int * 62 / 100 ))
+  local t4=$(( dur_int * 87 / 100 ))
+
+  # Format label: "MM:SS, NN%" (escaped for ffmpeg drawtext filter)
+  _sb_label() {
+    local s=$1 d=$2
+    local pct=$(( s * 100 / d ))
+    printf '%02d\\:%02d\\, %d%%' $(( s / 60 )) $(( s % 60 )) "$pct"
+  }
+
+  local l1 l2 l3 l4
+  l1=$(_sb_label "$t1" "$dur_int")
+  l2=$(_sb_label "$t2" "$dur_int")
+  l3=$(_sb_label "$t3" "$dur_int")
+  l4=$(_sb_label "$t4" "$dur_int")
+
+  # Extract 4 frames, add time labels, then combine into 2x2 grid
+  local tmp_dir="/tmp/opusclip-sb-$$"
+  mkdir -p "$tmp_dir"
+
+  _sb_frame() {
+    local ts=$1 label=$2 idx=$3
+    ffmpeg -y -ss "$ts" -i "$tmp_video" -frames:v 1 -update 1 -q:v 2 "$tmp_dir/raw${idx}.jpg" 2>/dev/null
+    ffmpeg -y -i "$tmp_dir/raw${idx}.jpg" \
+      -vf "drawtext=text='${label}':expansion=none:x=(w-tw)/2:y=h-th-10:fontsize=28:fontcolor=white:borderw=3:bordercolor=black" \
+      -frames:v 1 -update 1 -q:v 2 "$tmp_dir/${idx}.jpg" 2>/dev/null
+  }
+
+  _sb_frame "$t1" "$l1" 1
+  _sb_frame "$t2" "$l2" 2
+  _sb_frame "$t3" "$l3" 3
+  _sb_frame "$t4" "$l4" 4
+
+  [[ -z "$out_file" ]] && out_file="/tmp/opusclip-storyboard-${clip_id}.jpg"
+
+  ffmpeg -y \
+    -i "$tmp_dir/1.jpg" -i "$tmp_dir/2.jpg" -i "$tmp_dir/3.jpg" -i "$tmp_dir/4.jpg" \
+    -filter_complex "xstack=inputs=4:layout=0_0|w0_0|0_h0|w0_h0[out]" \
+    -map "[out]" -frames:v 1 -update 1 -q:v 2 "$out_file" 2>/dev/null
+
+  rm -rf "$tmp_dir"
+
+  echo "Storyboard: $out_file" >&2
+
+  if command -v open >/dev/null 2>&1; then
+    open "$out_file"
+  elif command -v xdg-open >/dev/null 2>&1; then
+    xdg-open "$out_file"
+  fi
+
+  echo "{\"storyboard\": \"$out_file\"}"
+}
+
+# ── Trim ──────────────────────────────────────────────────────────────────
+
+cmd_trim() {
+  local project_id="" clip_id="" start_sec="" end_sec="" out_file=""
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --project) project_id="$2"; shift 2 ;;
+      --clip)    clip_id="$2"; shift 2 ;;
+      --start)   start_sec="$2"; shift 2 ;;
+      --end)     end_sec="$2"; shift 2 ;;
+      --output)  out_file="$2"; shift 2 ;;
+      *) die "trim: unknown flag '$1'" ;;
+    esac
+  done
+
+  [[ -n "$project_id" ]] || die "trim: --project is required"
+  [[ -n "$clip_id" ]]    || die "trim: --clip is required"
+  [[ -n "$start_sec" ]]  || die "trim: --start is required"
+  [[ -n "$end_sec" ]]    || die "trim: --end is required"
+  need ffmpeg
+
+  local clips_json
+  clips_json=$(api_get "$API_BASE/exportable-clips?q=findByProjectId&projectId=$project_id")
+
+  local preview_url
+  preview_url=$(echo "$clips_json" | jq -r \
+    --arg cid "$clip_id" \
+    '.data[] | select(.curationId == $cid or .id == $cid) | .uriForPreview // empty' \
+    | head -1)
+
+  [[ -n "$preview_url" ]] || die "trim: no preview video found for clip $clip_id"
+
+  local tmp_video="/tmp/opusclip-trim-${clip_id}.mp4"
+  echo "Downloading preview video..." >&2
+  curl -sS -o "$tmp_video" "$preview_url"
+
+  [[ -z "$out_file" ]] && out_file="/tmp/opusclip-trimmed-${clip_id}.mp4"
+  ffmpeg -y -i "$tmp_video" -ss "$start_sec" -to "$end_sec" -c copy "$out_file" 2>/dev/null
+
+  echo "Trimmed: $out_file" >&2
+  echo "{\"output\": \"$out_file\", \"start\": $start_sec, \"end\": $end_sec}"
+}
+
 # ── Preview ──────────────────────────────────────────────────────────────
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -561,10 +772,13 @@ USAGE
   opusclip <command> [options]
 
 COMMANDS
-  create-project    Create a clip project from a video URL
-  get-clips         Get exportable clips for a project or collection
+  submit            Submit a video for clipping (alias: create-project)
+  list              List clips for a project or collection (alias: get-clips)
+  describe          Get clip details — transcript, layout info
+  storyboard        Generate 2x2 frame grid image (requires ffmpeg)
+  trim              Trim a clip locally (requires ffmpeg)
   preview           Generate HTML preview page and open in browser
-  share-project     Update project visibility (PUBLIC / DEFAULT)
+  share             Update project visibility (alias: share-project)
   templates         List available brand templates
   upload            Upload a local video file and create a clip project
   collections       Manage collections (list|create|delete|export|add-clip|remove-clip)
@@ -572,21 +786,30 @@ COMMANDS
   help              Show this help message
 
 ENVIRONMENT
-  OPUSCLIP_API_KEY  Required. Your API key from https://clip.opus.pro/dashboard
-
-GLOBAL FLAGS
-  --raw             Output raw JSON without pretty-printing
+  OPUSCLIP_API_KEY        Required. Your API key from https://clip.opus.pro/dashboard
+  OPUSCLIP_API_URL        Override API base URL (default: https://api.opus.pro/api)
+  OPUSCLIP_EXTRA_HEADERS  Semicolon-separated extra HTTP headers (e.g. "X-Foo: bar;X-Baz: qux")
 
 EXAMPLES
-  # Create a project from a YouTube URL
-  opusclip create-project --url "https://youtube.com/watch?v=..." --aspect portrait
+  # Submit a video for clipping from a YouTube URL
+  opusclip submit --url "https://youtube.com/watch?v=..." --aspect portrait
 
-  # Create a project with ClipAnything model and custom prompt
-  opusclip create-project --url "https://youtube.com/watch?v=..." \\
+  # Submit with ClipAnything model and custom prompt
+  opusclip submit --url "https://youtube.com/watch?v=..." \\
     --model ClipAnything --prompt "Find the funniest moments"
 
-  # Get clips from a project
-  opusclip get-clips --project PROJECT_ID
+  # List clips from a project
+  opusclip list --project PROJECT_ID
+
+  # Describe a clip (transcript, layout)
+  opusclip describe --project PROJECT_ID --clip CLIP_ID
+  opusclip describe --project PROJECT_ID --clip CLIP_ID --transcript
+
+  # Generate storyboard image from a clip
+  opusclip storyboard --project PROJECT_ID --clip CLIP_ID
+
+  # Trim a clip locally
+  opusclip trim --project PROJECT_ID --clip CLIP_ID --start 5 --end 25
 
   # Upload a local video and clip it
   opusclip upload --file video.mp4 --title "My Video" --durations "30,60"
@@ -595,7 +818,7 @@ EXAMPLES
   opusclip templates
 
   # Share a project publicly
-  opusclip share-project --project PROJECT_ID --visibility PUBLIC
+  opusclip share --project PROJECT_ID --visibility PUBLIC
 
   # Create and manage a collection
   opusclip collections create --name "Best Clips"
@@ -613,13 +836,10 @@ EOF
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 main() {
-  RAW=0
-
   # Extract global flags
   local args=()
   for arg in "$@"; do
     case "$arg" in
-      --raw) RAW=1 ;;
       *)     args+=("$arg") ;;
     esac
   done
@@ -630,10 +850,21 @@ main() {
   shift 2>/dev/null || true
 
   case "$cmd" in
+    # Primary names
+    submit)         cmd_create_project "$@" ;;
+    list)           cmd_get_clips "$@" ;;
+    share)          cmd_share_project "$@" ;;
+    describe)       cmd_describe "$@" ;;
+
+    storyboard)     cmd_storyboard "$@" ;;
+    trim)           cmd_trim "$@" ;;
+
+    # Aliases (backwards compat)
     create-project) cmd_create_project "$@" ;;
     get-clips)      cmd_get_clips "$@" ;;
-    preview)        cmd_preview "$@" ;;
     share-project)  cmd_share_project "$@" ;;
+
+    preview)        cmd_preview "$@" ;;
     templates)      cmd_templates "$@" ;;
     upload)         cmd_upload "$@" ;;
     collections)    cmd_collections "$@" ;;
