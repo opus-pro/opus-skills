@@ -483,7 +483,7 @@ cmd_describe() {
       '.data[] | select(.curationId == $cid or .id == $cid) | {
         id: .id,
         title: .title,
-        transcript: .transcript
+        transcript: .text
       }'
   fi
 
@@ -491,10 +491,8 @@ cmd_describe() {
     echo "$clips_json" | jq --arg cid "$clip_id" \
       '.data[] | select(.curationId == $cid or .id == $cid) | {
         id: .id,
-        layout: .layoutType,
-        face_count: .faceCount,
-        has_screen: .hasScreen,
-        available_layouts: .availableLayouts
+        layout: .renderPref.layoutType,
+        aspect: .renderPref.layoutAspectRatio
       }'
   fi
 
@@ -505,11 +503,11 @@ cmd_describe() {
         id: .id,
         title: .title,
         description: .description,
-        transcript: .transcript,
-        layout: .layoutType,
-        face_count: .faceCount,
-        has_screen: .hasScreen,
-        duration_sec: ((.durationMs // 0) / 1000 | round)
+        transcript: .text,
+        hashtags: .hashtags,
+        keywords: .clipKeywords,
+        duration_sec: ((.durationMs // 0) / 1000 | round),
+        score: .score
       }'
   fi
 }
