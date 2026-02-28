@@ -28,14 +28,8 @@ auth_headers() {
   echo -H "Authorization: Bearer $(api_key)" -H "Content-Type: application/json" -H "Accept: application/json"
 }
 
-# Pretty-print JSON or pass through raw
-output() {
-  if [[ "${RAW:-}" == "1" ]]; then
-    cat
-  else
-    jq .
-  fi
-}
+# Pretty-print JSON
+output() { jq .; }
 
 EXTRA_HEADER_FLAGS=()
 if [[ -n "${OPUSCLIP_EXTRA_HEADERS:-}" ]]; then
@@ -199,8 +193,22 @@ cmd_get_clips() {
     die "get-clips: --project or --collection is required"
   fi
 
+  local filter='[.data[] | {
+    id: .id,
+    rank: .rank,
+    score: .score,
+    title: .title,
+    description: .description,
+    hashtags: .hashtags,
+    duration_sec: ((.durationMs // 0) / 1000 | round),
+    is_bonus: .isBonusClip,
+    preview_url: .uriForPreview,
+    export_url: .uriForExport,
+    thumbnail_url: .uriForThumbnail
+  }]'
+
   if [[ "$summary" == "true" ]]; then
-    api_get "$url" | jq '[.data[] | {
+    filter='[.data[] | {
       id: .id,
       rank: .rank,
       score: .score,
@@ -208,18 +216,14 @@ cmd_get_clips() {
       description: .description,
       hashtags: .hashtags,
       duration_sec: ((.durationMs // 0) / 1000 | round),
-      is_bonus: .isBonusClip,
       hook_score: .judgeResult.hookScore,
       coherence_score: .judgeResult.coherenceScore,
       connection_score: .judgeResult.connectionScore,
-      trend_score: .judgeResult.trendScore,
-      preview_url: .uriForPreview,
-      export_url: .uriForExport,
-      thumbnail_url: .uriForThumbnail
+      trend_score: .judgeResult.trendScore
     }]'
-  else
-    api_get "$url" | output
   fi
+
+  api_get "$url" | jq "$filter"
 }
 
 cmd_share_project() {
@@ -786,9 +790,6 @@ ENVIRONMENT
   OPUSCLIP_API_URL        Override API base URL (default: https://api.opus.pro/api)
   OPUSCLIP_EXTRA_HEADERS  Semicolon-separated extra HTTP headers (e.g. "X-Foo: bar;X-Baz: qux")
 
-GLOBAL FLAGS
-  --raw             Output raw JSON without pretty-printing
-
 EXAMPLES
   # Submit a video for clipping from a YouTube URL
   opusclip submit --url "https://youtube.com/watch?v=..." --aspect portrait
@@ -835,13 +836,10 @@ EOF
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 main() {
-  RAW=0
-
   # Extract global flags
   local args=()
   for arg in "$@"; do
     case "$arg" in
-      --raw) RAW=1 ;;
       *)     args+=("$arg") ;;
     esac
   done
