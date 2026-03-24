@@ -5,14 +5,14 @@
   },
   "metadata": {
     "description": "Official OpusClip skills for AI coding agents",
-    "version": "1.0.0"
+    "version": "1.2.0"
   },
   "plugins": [
     {
       "name": "opusclip",
       "source": "./skills/opusclip",
       "description": "Turn long-form videos into short clips and post them to social platforms via the OpusClip API",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "author": {
         "name": "OpusClip"
       },
