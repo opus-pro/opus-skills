@@ -12,7 +12,11 @@ Install individual skills or the entire collection into Claude Code, Cursor, and
 
 ## Installation
 
-In Claude Code, run:
+```bash
+npx skills add opus-pro/opus-skills
+```
+
+Or via the Claude Code plugin marketplace:
 
 ```
 /plugin marketplace add opus-pro/opus-skills
