@@ -20,7 +20,7 @@ Or via the Claude Code plugin marketplace:
 
 ```
 /plugin marketplace add opus-pro/opus-skills
-/plugin install opusclip
+/plugin install opusclip@opus-skills
 ```
 
 ### Manual installation
