@@ -1,0 +1,14 @@
+name: Notify eval
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger eval tests
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: gh workflow run ci.yml -R opus-pro/opus-skills-eval -r main
