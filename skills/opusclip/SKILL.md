@@ -1,6 +1,6 @@
 ---
 name: opusclip
-description: Turn long-form videos into short clips using the OpusClip API. Use when the user wants to clip a YouTube video, upload a local video for clipping, manage clip collections, list brand templates, share projects publicly, censor profanity, or any task involving OpusClip. Triggers on phrases like "clip this video", "create shorts", "opusclip", "make clips from video", "upload to opusclip".
+description: Turn long-form videos into short clips and post them to social platforms using the OpusClip API. Use when the user wants to clip a YouTube video, upload a local video for clipping, manage clip collections, list brand templates, share projects publicly, censor profanity, post clips to social media, schedule social posts, or any task involving OpusClip. Triggers on phrases like "clip this video", "create shorts", "opusclip", "make clips from video", "upload to opusclip", "post to youtube", "schedule post", "publish clip".
 ---
 
 # OpusClip
@@ -28,6 +28,7 @@ opusclip templates                            List brand templates
 opusclip upload --file PATH [options]         Upload local video + create project
 opusclip collections <sub> [options]          Manage collections
 opusclip censor <sub> [options]               Censor profanity in clips
+opusclip post <sub> [options]                 Social posting (publish, schedule, generate copy)
 ```
 
 ### submit
@@ -180,6 +181,30 @@ opusclip trim --project PROJECT_ID --clip CLIP_ID --start 3 --end 50 --output tr
 | `--end` | (required) End time in seconds |
 | `--output` | Custom output path (default: `/tmp/opusclip-trimmed-{clipId}.mp4`) |
 
+### post
+
+Manage social posting — publish clips to YouTube, TikTok, Facebook, Instagram, LinkedIn, and X.
+
+```bash
+opusclip post accounts
+opusclip post generate-copy --project PID --clip CID --account AID [--prompt "tone"]
+opusclip post copy-status --job JOB_ID
+opusclip post publish --project PID --clip CID --account AID --title "Title" [--description "..."] [--privacy public]
+opusclip post schedule --project PID --clip CID --account AID --title "Title" --at 2026-03-25T14:00:00Z
+opusclip post cancel --schedule SCHEDULE_ID
+```
+
+| Subcommand | Description |
+|------------|-------------|
+| `accounts` | List connected social accounts (default) |
+| `generate-copy` | Generate AI-optimized post copy for a clip |
+| `copy-status` | Poll for generated copy result |
+| `publish` | Publish a clip immediately |
+| `schedule` | Schedule a clip for future publishing |
+| `cancel` | Cancel a scheduled post |
+
+Supported platforms: YouTube, TikTok Business, Facebook Page, Instagram Business, LinkedIn, X (Twitter). Each X post costs 1 credit.
+
 ## Common Workflows
 
 ### Clip a YouTube video
@@ -222,6 +247,30 @@ opusclip storyboard --project PROJECT_ID --clip CLIP_ID
 
 # Share
 opusclip share --project PROJECT_ID
+```
+
+### Clip, generate copy, and post to social
+
+```bash
+# 1. Submit and get clips
+opusclip submit --url "https://youtube.com/watch?v=..."
+opusclip list --project PROJECT_ID --summary
+
+# 2. See where you can post
+opusclip post accounts
+
+# 3. Generate platform-optimized copy
+opusclip post generate-copy --project PROJECT_ID --clip CLIP_ID --account ACCOUNT_ID --prompt "witty and engaging"
+opusclip post copy-status --job JOB_ID
+
+# 4a. Publish immediately
+opusclip post publish --project PROJECT_ID --clip CLIP_ID --account ACCOUNT_ID --title "Check this out!"
+
+# 4b. Or schedule for later
+opusclip post schedule --project PROJECT_ID --clip CLIP_ID --account ACCOUNT_ID --title "Check this out!" --at 2026-03-25T14:00:00Z
+
+# Cancel if needed
+opusclip post cancel --schedule SCHEDULE_ID
 ```
 
 ## Constraints
