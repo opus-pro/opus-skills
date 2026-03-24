@@ -1,0 +1,19 @@
+name: Notify eval
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger downstream tests
+        env:
+          TOKEN: ${{ secrets.CI_DISPATCH_TOKEN }}
+        run: |
+          curl -sS -X POST \
+            -H "Authorization: token $TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/opus-pro/opus-skills-eval/dispatches \
+            -d '{"event_type":"skills-updated"}'
