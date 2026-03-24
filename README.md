@@ -12,16 +12,16 @@ Agent skills for [OpusClip](https://opus.pro) — installable in Claude Code, Cu
 
 ```bash
 # Install with npx
-npx skills add yong-opus/opus-skills --skill opusclip
+npx skills add opus-pro/opus-skills --skill opusclip
 
 # Or install all skills
-npx skills add yong-opus/opus-skills --all
+npx skills add opus-pro/opus-skills --all
 ```
 
 ### Manual installation
 
 ```bash
-git clone https://github.com/yong-opus/opus-skills.git
+git clone https://github.com/opus-pro/opus-skills.git
 cp -r opus-skills/skills/opusclip ~/.claude/skills/opusclip
 ```
 
