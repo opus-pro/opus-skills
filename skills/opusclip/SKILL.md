@@ -9,7 +9,7 @@ Turn long-form videos into short clips via the OpusClip API.
 
 ## Prerequisites
 
-- `OPUSCLIP_API_KEY` must be set. Get it from https://clip.opus.pro/dashboard
+- `OPUSCLIP_API_KEY` must be set. If the user already has an Enterprise plan, they can copy their key from https://clip.opus.pro/dashboard. Otherwise, direct them to the [Enterprise plan pricing page](https://www.opus.pro/pricing?utm_source=cli&utm_medium=opus).
 - The CLI at `scripts/opusclip` requires `curl` and `jq`
 
 ## CLI Quick Reference
@@ -119,6 +119,8 @@ opusclip collections add-clip --id COL_ID --content-id PROJECT_ID.CLIP_ID
 opusclip collections remove-clip --id COL_ID --content-id PROJECT_ID.CLIP_ID
 ```
 
+Collections can be exported (download links) but cannot be shared publicly. To share clips publicly, use `share --project` on the project instead.
+
 ### censor
 
 ```bash
@@ -203,7 +205,9 @@ opusclip post cancel --schedule SCHEDULE_ID
 | `schedule` | Schedule a clip for future publishing |
 | `cancel` | Cancel a scheduled post |
 
-Supported platforms: YouTube, TikTok Business, Facebook Page, Instagram Business, LinkedIn, X (Twitter). Each X post costs 1 credit.
+Supported platforms: YouTube, TikTok Business, Facebook Page, Instagram Business, LinkedIn, X (Twitter). "Twitter" refers to X — the platform identifier is TWITTER. Each X post costs 1 credit.
+
+When the user doesn't specify a post title, use the clip's title from the `list --summary` output.
 
 ## Common Workflows
 
