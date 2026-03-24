@@ -9,7 +9,7 @@ Turn long-form videos into short clips via the OpusClip API.
 
 ## Prerequisites
 
-- `OPUSCLIP_API_KEY` must be set. Get it from https://clip.opus.pro/dashboard
+- `OPUSCLIP_API_KEY` must be set. API access requires an [Enterprise plan](https://www.opus.pro/pricing?utm_source=cli&utm_medium=opus)
 - The CLI at `scripts/opusclip` requires `curl` and `jq`
 
 ## CLI Quick Reference
