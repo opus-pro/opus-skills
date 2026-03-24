@@ -14,6 +14,7 @@ Rate limit: 30 req/min. Max video: 10h / 30GB. Max concurrent: 50 projects.
 - [Collections](#collections)
 - [Collection Contents](#collection-contents)
 - [Censor Jobs](#censor-jobs)
+- [Social Posting](#social-posting)
 
 ---
 
@@ -204,3 +205,105 @@ Response (201): `{jobId, message}`
 **GET** `/censor-jobs/{jobId}`
 
 Response: `{status: "QUEUED"|"PROCESSING"|"CONCLUDED"|"FAILED"|"UNKNOWN", error?: string}`
+
+---
+
+## Social Posting
+
+Distribute clips to connected social channels: YouTube, TikTok Business, Facebook Page, Instagram Business, LinkedIn, X (Twitter).
+
+Rate limits: `GET /social-accounts` 10 req/s · `POST /social-copy-jobs` 1 req/s · `GET /social-copy-jobs/{jobId}` 10 req/s · `POST /post-tasks` 1 req/s · `POST /publish-schedules` 1 req/s · `DELETE /publish-schedules/{scheduleId}` 1 req/s.
+
+Each post to X consumes 1 credit.
+
+### Get Social Accounts
+
+**GET** `/social-accounts?q=mine`
+
+Response:
+
+```json
+{
+  "data": [
+    {
+      "postAccountId": "string",
+      "subAccountId": "string",
+      "platform": "YOUTUBE|TIKTOK_BUSINESS|FACEBOOK_PAGE|INSTAGRAM_BUSINESS|LINKEDIN|TWITTER",
+      "extUserId": "string",
+      "extUserName": "string",
+      "extUserPictureLink": "string",
+      "extUserProfileLink": "string"
+    }
+  ]
+}
+```
+
+### Create Social Copy Job
+
+**POST** `/social-copy-jobs`
+
+Generate platform-optimized post copy for a clip.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `projectId` | string | yes | Project ID |
+| `clipId` | string | yes | Clip ID |
+| `postAccountId` | string | yes | Target social account ID |
+| `subAccountId` | string | no | Sub-account for Facebook/Instagram/LinkedIn |
+| `prompt` | string | no | Custom tone/style instruction |
+| `forceRegenerate` | boolean | no | Bypass cached results |
+
+Response (201): `{data: {jobId: "string"}}`
+
+### Get Social Copy Result
+
+**GET** `/social-copy-jobs/{jobId}`
+
+Poll for generated copy. Status values: `PENDING`, `IN_PROGRESS`, `COMPLETED`, `FAILED`.
+
+Returns generated copy text when status is `COMPLETED`.
+
+### Publish Instantly
+
+**POST** `/post-tasks`
+
+Publish a clip immediately to a connected social account.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `projectId` | string | yes | Project ID |
+| `clipId` | string | yes | Clip ID |
+| `postAccountId` | string | yes | Target account ID |
+| `subAccountId` | string | no | Sub-account for Facebook/Instagram/LinkedIn |
+| `postDetail` | object | yes | Post metadata (see below) |
+
+**postDetail:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `title` | string | Post title |
+| `mediaType` | string | Platform-dependent media type |
+| `custom` | object | `{description?: string, privacy?: "public"\|"private"\|"unlisted"}` |
+
+### Schedule a Post
+
+**POST** `/publish-schedules`
+
+Schedule a clip for future publishing.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `projectId` | string | yes | Project ID |
+| `clipId` | string | yes | Clip ID |
+| `postAccountId` | string | yes | Target account ID |
+| `subAccountId` | string | no | Sub-account for Facebook/Instagram/LinkedIn |
+| `publishAt` | string | yes | Future time in ISO 8601 UTC |
+| `postDetail` | object | yes | Same as Publish Instantly |
+
+Response (201): `{data: {scheduleId: "string"}}`
+
+### Cancel a Scheduled Post
+
+**DELETE** `/publish-schedules/{scheduleId}`
+
+Cancel a scheduled post before it publishes.
