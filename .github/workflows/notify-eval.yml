@@ -10,5 +10,5 @@ jobs:
     steps:
       - name: Trigger eval tests
         env:
-          GH_TOKEN: ${{ secrets.CI_DISPATCH_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: gh workflow run ci.yml -R opus-pro/opus-skills-eval -r main
