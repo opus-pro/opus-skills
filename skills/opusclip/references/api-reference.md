@@ -41,7 +41,7 @@ Request body:
 | Field | Type | Description |
 |-------|------|-------------|
 | `model` | string | `ClipBasic` (talking-head) or `ClipAnything` (diverse content) |
-| `clipDurations` | number[] | Target durations in seconds |
+| `clipDurations` | [number, number][] | Duration ranges as `[[min, max], ...]` in seconds, e.g. `[[0, 30], [0, 60]]` |
 | `genre` | string | Video genre hint |
 | `topicKeywords` | string[] | Keywords (ClipBasic only) |
 | `customPrompt` | string | Custom prompt (ClipAnything only) |

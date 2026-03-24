@@ -136,7 +136,7 @@ cmd_create_project() {
     curation=$(echo "$curation" | jq --arg v "$custom_prompt" '. + {customPrompt: $v}')
   fi
   if [[ -n "$clip_durations" ]]; then
-    curation=$(echo "$curation" | jq --arg v "$clip_durations" '. + {clipDurations: ($v | split(",") | map(tonumber))}')
+    curation=$(echo "$curation" | jq --arg v "$clip_durations" '. + {clipDurations: ($v | split(",") | map(tonumber) | map([0, .]))}')
   fi
   if [[ "$skip_curate" == "true" ]]; then
     curation=$(echo "$curation" | jq '. + {skipCurate: true}')
