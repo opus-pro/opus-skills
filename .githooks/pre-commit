@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "Running shellcheck..."
+shellcheck --exclude=SC1091 \
+  skills/opusclip/scripts/opusclip \
+  skills/opusclip/scripts/lib/*.sh \
+  skills/opusclip/scripts/commands/*.sh
+
+echo "Running tests..."
+bats skills/opusclip/tests/
+
+echo "All checks passed."
