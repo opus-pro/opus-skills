@@ -15,6 +15,18 @@ API_BASE="${OPUSCLIP_API_URL:-https://api.opus.pro/api}"
 die()  { echo "error: $*" >&2; exit 1; }
 need() { command -v "$1" >/dev/null 2>&1 || die "$1 is required but not installed"; }
 
+# Strip project prefix from composite clip IDs (e.g. "P123.ClipABC" → "ClipABC")
+clip_suffix() {
+  local id="$1" pid="${2:-}"
+  if [[ -n "$pid" && "$id" == "$pid."* ]]; then
+    echo "${id#"$pid".}"
+  elif [[ "$id" == *.* ]]; then
+    echo "${id#*.}"
+  else
+    echo "$id"
+  fi
+}
+
 need curl
 need jq
 
@@ -194,7 +206,8 @@ cmd_get_clips() {
   fi
 
   local filter='[.data[] | {
-    id: .id,
+    project_id: (.id | split(".") | .[0]),
+    clip_id: (.id | split(".") | .[1:] | join(".")),
     rank: .rank,
     score: .score,
     title: .title,
@@ -209,7 +222,8 @@ cmd_get_clips() {
 
   if [[ "$summary" == "true" ]]; then
     filter='[.data[] | {
-      id: .id,
+      project_id: (.id | split(".") | .[0]),
+      clip_id: (.id | split(".") | .[1:] | join(".")),
       rank: .rank,
       score: .score,
       title: .title,
@@ -437,6 +451,7 @@ cmd_censor() {
       done
       [[ -n "$project_id" ]] || die "censor create: --project is required"
       [[ -n "$clip_id" ]]    || die "censor create: --clip is required"
+      clip_id=$(clip_suffix "$clip_id" "$project_id")
       local payload
       payload=$(jq -n --arg pid "$project_id" --arg cid "$clip_id" --argjson beep "$beep" \
         '{projectId: $pid, clipId: $cid, options: {beepSound: $beep}}')
@@ -494,6 +509,7 @@ cmd_post() {
       [[ -n "$project_id" ]] || die "post generate-copy: --project is required"
       [[ -n "$clip_id" ]]    || die "post generate-copy: --clip is required"
       [[ -n "$account_id" ]] || die "post generate-copy: --account is required"
+      clip_id=$(clip_suffix "$clip_id" "$project_id")
 
       local payload
       payload=$(jq -n \
@@ -538,6 +554,7 @@ cmd_post() {
       [[ -n "$clip_id" ]]    || die "post publish: --clip is required"
       [[ -n "$account_id" ]] || die "post publish: --account is required"
       [[ -n "$title" ]]      || die "post publish: --title is required"
+      clip_id=$(clip_suffix "$clip_id" "$project_id")
 
       local post_detail
       post_detail=$(jq -n --arg t "$title" '{title: $t}')
@@ -579,6 +596,7 @@ cmd_post() {
       [[ -n "$account_id" ]] || die "post schedule: --account is required"
       [[ -n "$title" ]]      || die "post schedule: --title is required"
       [[ -n "$publish_at" ]] || die "post schedule: --at is required (ISO 8601 UTC, e.g. 2026-03-25T14:00:00Z)"
+      clip_id=$(clip_suffix "$clip_id" "$project_id")
 
       local post_detail
       post_detail=$(jq -n --arg t "$title" '{title: $t}')

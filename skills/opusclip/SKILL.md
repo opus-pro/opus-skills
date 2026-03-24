@@ -78,6 +78,8 @@ opusclip list --collection COLLECTION_ID
 
 When presenting clips to the user, always use `--summary` to get human-readable fields (title, description, hashtags, scores). Display clips with their title and description rather than just clip IDs.
 
+The output contains `project_id` and `clip_id` as separate fields. Use `clip_id` (e.g. `0RiWBs5xuF`) for `--clip` flags, not the composite ID.
+
 ### preview
 
 Generate an HTML preview page with video players for all clips and open it in the browser.
