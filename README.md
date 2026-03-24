@@ -1,6 +1,8 @@
 # opus-skills
 
-Agent skills for [OpusClip](https://opus.pro) — installable in Claude Code, Cursor, and other AI coding agents.
+A skill marketplace for [OpusClip](https://opus.pro) — add video clipping, social posting, and more to your AI coding agent.
+
+Install individual skills or the entire collection into Claude Code, Cursor, and other AI coding agents that support skills.
 
 ## Available Skills
 
@@ -11,7 +13,7 @@ Agent skills for [OpusClip](https://opus.pro) — installable in Claude Code, Cu
 ## Installation
 
 ```bash
-# Install with npx
+# Install a specific skill
 npx skills add opus-pro/opus-skills --skill opusclip
 
 # Or install all skills
@@ -37,6 +39,10 @@ cp -r opus-skills/skills/opusclip ~/.claude/skills/opusclip
 - **Review clips** — list, describe, preview, and storyboard generated clips
 - **Organize** — manage collections, apply brand templates, censor profanity
 - **Post to social** — publish or schedule clips to YouTube, TikTok, Facebook, Instagram, LinkedIn, and X
+
+## Contributing
+
+Want to add a new skill? Each skill lives in its own directory under `skills/`. See [skills/opusclip](skills/opusclip/) for an example of the structure.
 
 ## License
 
