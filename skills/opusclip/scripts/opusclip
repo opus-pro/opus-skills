@@ -19,7 +19,7 @@ need curl
 need jq
 
 api_key() {
-  [[ -n "${OPUSCLIP_API_KEY:-}" ]] || die "OPUSCLIP_API_KEY is not set"
+  [[ -n "${OPUSCLIP_API_KEY:-}" ]] || die "OPUSCLIP_API_KEY is not set. API access requires an Enterprise plan: https://www.opus.pro/pricing?utm_source=cli&utm_medium=error&utm_campaign=api_key"
   echo "$OPUSCLIP_API_KEY"
 }
 
