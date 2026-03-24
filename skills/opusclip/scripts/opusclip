@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# OpusClip CLI — wrapper for the OpusClip API
+# OpusClip CLI — thin wrapper for the OpusClip API
 # https://help.opus.pro/api-reference/overview
 #
 # Requires: curl, jq
 # Auth: Set OPUSCLIP_API_KEY environment variable
 
-VERSION="1.1.0"
+VERSION="2.0.0"
 API_BASE="${OPUSCLIP_API_URL:-https://api.opus.pro/api}"
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -23,12 +23,6 @@ api_key() {
   echo "$OPUSCLIP_API_KEY"
 }
 
-# Standard headers for authenticated requests
-auth_headers() {
-  echo -H "Authorization: Bearer $(api_key)" -H "Content-Type: application/json" -H "Accept: application/json"
-}
-
-# Pretty-print JSON
 output() { jq .; }
 
 EXTRA_HEADER_FLAGS=()
@@ -44,7 +38,6 @@ fi
 
 # ── API calls ────────────────────────────────────────────────────────────────
 
-# POST with JSON body
 api_post() {
   local url="$1"; shift
   local body="$1"; shift
@@ -56,7 +49,6 @@ api_post() {
     -d "$body" "$@"
 }
 
-# GET with query string
 api_get() {
   local url="$1"; shift
   curl -sS -X GET "$url" \
@@ -66,7 +58,6 @@ api_get() {
     "$@"
 }
 
-# DELETE
 api_delete() {
   local url="$1"; shift
   curl -sS -X DELETE "$url" \
@@ -107,67 +98,34 @@ cmd_create_project() {
 
   [[ -n "$video_url" ]] || die "create-project: --url is required"
 
-  # Build JSON payload with jq
   local payload
-  payload=$(jq -n \
-    --arg videoUrl "$video_url" \
-    '{videoUrl: $videoUrl}')
+  payload=$(jq -n --arg videoUrl "$video_url" '{videoUrl: $videoUrl}')
 
-  if [[ -n "$template_id" ]]; then
-    payload=$(echo "$payload" | jq --arg v "$template_id" '. + {brandTemplateId: $v}')
-  fi
+  [[ -n "$template_id" ]] && payload=$(echo "$payload" | jq --arg v "$template_id" '. + {brandTemplateId: $v}')
+  [[ -n "$title" ]]       && payload=$(echo "$payload" | jq --arg v "$title" '. + {uploadedVideoAttr: {title: $v}}')
 
-  if [[ -n "$title" ]]; then
-    payload=$(echo "$payload" | jq --arg v "$title" '. + {uploadedVideoAttr: {title: $v}}')
-  fi
-
-  # curationPref
   local curation="{}"
-  if [[ -n "$model" ]]; then
-    curation=$(echo "$curation" | jq --arg v "$model" '. + {model: $v}')
-  fi
-  if [[ -n "$genre" ]]; then
-    curation=$(echo "$curation" | jq --arg v "$genre" '. + {genre: $v}')
-  fi
-  if [[ -n "$keywords" ]]; then
-    curation=$(echo "$curation" | jq --arg v "$keywords" '. + {topicKeywords: ($v | split(","))}')
-  fi
-  if [[ -n "$custom_prompt" ]]; then
-    curation=$(echo "$curation" | jq --arg v "$custom_prompt" '. + {customPrompt: $v}')
-  fi
-  if [[ -n "$clip_durations" ]]; then
-    curation=$(echo "$curation" | jq --arg v "$clip_durations" '. + {clipDurations: ($v | split(",") | map(tonumber))}')
-  fi
-  if [[ "$skip_curate" == "true" ]]; then
-    curation=$(echo "$curation" | jq '. + {skipCurate: true}')
-  fi
+  [[ -n "$model" ]]          && curation=$(echo "$curation" | jq --arg v "$model" '. + {model: $v}')
+  [[ -n "$genre" ]]          && curation=$(echo "$curation" | jq --arg v "$genre" '. + {genre: $v}')
+  [[ -n "$keywords" ]]       && curation=$(echo "$curation" | jq --arg v "$keywords" '. + {topicKeywords: ($v | split(","))}')
+  [[ -n "$custom_prompt" ]]  && curation=$(echo "$curation" | jq --arg v "$custom_prompt" '. + {customPrompt: $v}')
+  [[ -n "$clip_durations" ]] && curation=$(echo "$curation" | jq --arg v "$clip_durations" '. + {clipDurations: ($v | split(",") | map(tonumber))}')
+  [[ "$skip_curate" == "true" ]] && curation=$(echo "$curation" | jq '. + {skipCurate: true}')
   if [[ -n "$range_start" || -n "$range_end" ]]; then
     local range="{}"
     [[ -n "$range_start" ]] && range=$(echo "$range" | jq --arg v "$range_start" '. + {startSec: ($v | tonumber)}')
     [[ -n "$range_end" ]]   && range=$(echo "$range" | jq --arg v "$range_end" '. + {endSec: ($v | tonumber)}')
     curation=$(echo "$curation" | jq --argjson r "$range" '. + {range: $r}')
   fi
-  if [[ "$curation" != "{}" ]]; then
-    payload=$(echo "$payload" | jq --argjson c "$curation" '. + {curationPref: $c}')
-  fi
+  [[ "$curation" != "{}" ]] && payload=$(echo "$payload" | jq --argjson c "$curation" '. + {curationPref: $c}')
 
-  # renderPref
   local render="{}"
   render=$(echo "$render" | jq --arg v "$aspect" '. + {layoutAspectRatio: $v}')
-  if [[ "$remove_filler" == "true" ]]; then
-    render=$(echo "$render" | jq '. + {quickstartConfig: {enableRemoveFillerWords: true}}')
-  fi
+  [[ "$remove_filler" == "true" ]] && render=$(echo "$render" | jq '. + {quickstartConfig: {enableRemoveFillerWords: true}}')
   payload=$(echo "$payload" | jq --argjson r "$render" '. + {renderPref: $r}')
 
-  # importPreference
-  if [[ -n "$source_lang" ]]; then
-    payload=$(echo "$payload" | jq --arg v "$source_lang" '. + {importPreference: {sourceLang: $v}}')
-  fi
-
-  # conclusionActions
-  if [[ -n "$webhook_url" ]]; then
-    payload=$(echo "$payload" | jq --arg v "$webhook_url" '. + {conclusionActions: [{type: "WEBHOOK", url: $v}]}')
-  fi
+  [[ -n "$source_lang" ]] && payload=$(echo "$payload" | jq --arg v "$source_lang" '. + {importPreference: {sourceLang: $v}}')
+  [[ -n "$webhook_url" ]] && payload=$(echo "$payload" | jq --arg v "$webhook_url" '. + {conclusionActions: [{type: "WEBHOOK", url: $v}]}')
 
   api_post "$API_BASE/clip-projects" "$payload" | output
 }
@@ -247,79 +205,6 @@ cmd_share_project() {
 
 cmd_templates() {
   api_get "$API_BASE/brand-templates?q=mine" | output
-}
-
-cmd_upload() {
-  local file="" title="" template_id="" model="" genre="" keywords="" custom_prompt=""
-  local aspect="portrait" skip_curate="false" source_lang="" webhook_url=""
-  local clip_durations="" range_start="" range_end="" remove_filler="false"
-
-  while [[ $# -gt 0 ]]; do
-    case "$1" in
-      --file)            file="$2"; shift 2 ;;
-      --title)           title="$2"; shift 2 ;;
-      --template)        template_id="$2"; shift 2 ;;
-      --model)           model="$2"; shift 2 ;;
-      --genre)           genre="$2"; shift 2 ;;
-      --keywords)        keywords="$2"; shift 2 ;;
-      --prompt)          custom_prompt="$2"; shift 2 ;;
-      --aspect)          aspect="$2"; shift 2 ;;
-      --skip-curate)     skip_curate="true"; shift ;;
-      --lang)            source_lang="$2"; shift 2 ;;
-      --webhook)         webhook_url="$2"; shift 2 ;;
-      --durations)       clip_durations="$2"; shift 2 ;;
-      --range-start)     range_start="$2"; shift 2 ;;
-      --range-end)       range_end="$2"; shift 2 ;;
-      --remove-filler)   remove_filler="true"; shift ;;
-      *) die "upload: unknown flag '$1'" ;;
-    esac
-  done
-
-  [[ -n "$file" ]] || die "upload: --file is required"
-  [[ -f "$file" ]] || die "upload: file '$file' not found"
-
-  echo "Step 1/4: Requesting upload link..." >&2
-  local upload_resp
-  upload_resp=$(api_post "$API_BASE/upload-links" '{"video":{"usecase":"LocalUpload"}}')
-
-  local gcs_url upload_id
-  gcs_url=$(echo "$upload_resp" | jq -r '.url')
-  upload_id=$(echo "$upload_resp" | jq -r '.uploadId')
-
-  [[ "$gcs_url" != "null" ]] || die "upload: failed to get upload URL. Response: $upload_resp"
-
-  echo "Step 2/4: Initiating resumable upload session..." >&2
-  local session_url
-  session_url=$(curl -sS -D - -o /dev/null -X POST "$gcs_url" \
-    -H "x-goog-resumable: start" \
-    -H "Content-Length: 0" | grep -i "^location:" | tr -d '\r' | sed 's/^[Ll]ocation: //')
-
-  [[ -n "$session_url" ]] || die "upload: failed to get resumable session URL"
-
-  echo "Step 3/4: Uploading video file..." >&2
-  curl -sS -X PUT "$session_url" \
-    -H "Content-Type: application/octet-stream" \
-    --data-binary "@$file" > /dev/null
-
-  echo "Step 4/4: Creating clip project..." >&2
-  # Build args for create-project, reusing the upload_id as the video URL
-  local args=(--url "$upload_id")
-  [[ -n "$title" ]]          && args+=(--title "$title")
-  [[ -n "$template_id" ]]    && args+=(--template "$template_id")
-  [[ -n "$model" ]]          && args+=(--model "$model")
-  [[ -n "$genre" ]]          && args+=(--genre "$genre")
-  [[ -n "$keywords" ]]       && args+=(--keywords "$keywords")
-  [[ -n "$custom_prompt" ]]  && args+=(--prompt "$custom_prompt")
-  [[ "$aspect" != "portrait" ]] && args+=(--aspect "$aspect")
-  [[ "$skip_curate" == "true" ]] && args+=(--skip-curate)
-  [[ -n "$source_lang" ]]    && args+=(--lang "$source_lang")
-  [[ -n "$webhook_url" ]]    && args+=(--webhook "$webhook_url")
-  [[ -n "$clip_durations" ]] && args+=(--durations "$clip_durations")
-  [[ -n "$range_start" ]]    && args+=(--range-start "$range_start")
-  [[ -n "$range_end" ]]      && args+=(--range-end "$range_end")
-  [[ "$remove_filler" == "true" ]] && args+=(--remove-filler)
-
-  cmd_create_project "${args[@]}"
 }
 
 # ── Collections ──────────────────────────────────────────────────────────────
@@ -616,307 +501,6 @@ cmd_post() {
   esac
 }
 
-# ── Describe ──────────────────────────────────────────────────────────────
-
-cmd_describe() {
-  local project_id="" clip_id="" show_transcript="false" show_layout="false"
-
-  while [[ $# -gt 0 ]]; do
-    case "$1" in
-      --project)    project_id="$2"; shift 2 ;;
-      --clip)       clip_id="$2"; shift 2 ;;
-      --transcript) show_transcript="true"; shift ;;
-      --layout)     show_layout="true"; shift ;;
-      *) die "describe: unknown flag '$1'" ;;
-    esac
-  done
-
-  [[ -n "$project_id" ]] || die "describe: --project is required"
-  [[ -n "$clip_id" ]]    || die "describe: --clip is required"
-
-  local clips_json
-  clips_json=$(api_get "$API_BASE/exportable-clips?q=findByProjectId&projectId=$project_id")
-
-  if [[ "$show_transcript" == "true" ]]; then
-    echo "$clips_json" | jq --arg cid "$clip_id" \
-      '.data[] | select(.curationId == $cid or .id == $cid) | {
-        id: .id,
-        title: .title,
-        transcript: .text
-      }'
-  fi
-
-  if [[ "$show_layout" == "true" ]]; then
-    echo "$clips_json" | jq --arg cid "$clip_id" \
-      '.data[] | select(.curationId == $cid or .id == $cid) | {
-        id: .id,
-        layout: .renderPref.layoutType,
-        aspect: .renderPref.layoutAspectRatio
-      }'
-  fi
-
-  # Default: show both
-  if [[ "$show_transcript" == "false" && "$show_layout" == "false" ]]; then
-    echo "$clips_json" | jq --arg cid "$clip_id" \
-      '.data[] | select(.curationId == $cid or .id == $cid) | {
-        id: .id,
-        title: .title,
-        description: .description,
-        transcript: .text,
-        hashtags: .hashtags,
-        keywords: .clipKeywords,
-        duration_sec: ((.durationMs // 0) / 1000 | round),
-        score: .score
-      }'
-  fi
-}
-
-# ── Storyboard ────────────────────────────────────────────────────────────
-
-cmd_storyboard() {
-  local project_id="" clip_id="" out_file=""
-
-  while [[ $# -gt 0 ]]; do
-    case "$1" in
-      --project) project_id="$2"; shift 2 ;;
-      --clip)    clip_id="$2"; shift 2 ;;
-      --output)  out_file="$2"; shift 2 ;;
-      *) die "storyboard: unknown flag '$1'" ;;
-    esac
-  done
-
-  [[ -n "$project_id" ]] || die "storyboard: --project is required"
-  [[ -n "$clip_id" ]]    || die "storyboard: --clip is required"
-  need ffmpeg
-
-  local clips_json
-  clips_json=$(api_get "$API_BASE/exportable-clips?q=findByProjectId&projectId=$project_id")
-
-  local preview_url dur_int
-  preview_url=$(echo "$clips_json" | jq -r \
-    --arg cid "$clip_id" \
-    '.data[] | select(.curationId == $cid or .id == $cid) | .uriForPreview // empty' \
-    | head -1)
-  dur_int=$(echo "$clips_json" | jq -r \
-    --arg cid "$clip_id" \
-    '.data[] | select(.curationId == $cid or .id == $cid) | ((.durationMs // 0) / 1000 | floor)' \
-    | head -1)
-
-  [[ -n "$preview_url" ]] || die "storyboard: no preview video found for clip $clip_id"
-  [[ "$dur_int" -gt 0 ]] 2>/dev/null || die "storyboard: could not determine clip duration"
-
-  local tmp_video="/tmp/opusclip-storyboard-${clip_id}.mp4"
-  echo "Downloading preview video..." >&2
-  curl -sS -o "$tmp_video" "$preview_url"
-
-  # 4 evenly spaced points (center of each quarter)
-  local t1=$(( dur_int * 12 / 100 ))
-  local t2=$(( dur_int * 37 / 100 ))
-  local t3=$(( dur_int * 62 / 100 ))
-  local t4=$(( dur_int * 87 / 100 ))
-
-  # Format label: "MM:SS, NN%" (escaped for ffmpeg drawtext filter)
-  _sb_label() {
-    local s=$1 d=$2
-    local pct=$(( s * 100 / d ))
-    printf '%02d\\:%02d\\, %d%%' $(( s / 60 )) $(( s % 60 )) "$pct"
-  }
-
-  local l1 l2 l3 l4
-  l1=$(_sb_label "$t1" "$dur_int")
-  l2=$(_sb_label "$t2" "$dur_int")
-  l3=$(_sb_label "$t3" "$dur_int")
-  l4=$(_sb_label "$t4" "$dur_int")
-
-  # Extract 4 frames, add time labels, then combine into 2x2 grid
-  local tmp_dir="/tmp/opusclip-sb-$$"
-  mkdir -p "$tmp_dir"
-
-  _sb_frame() {
-    local ts=$1 label=$2 idx=$3
-    ffmpeg -y -ss "$ts" -i "$tmp_video" -frames:v 1 -update 1 -q:v 2 "$tmp_dir/raw${idx}.jpg" 2>/dev/null
-    ffmpeg -y -i "$tmp_dir/raw${idx}.jpg" \
-      -vf "drawtext=text='${label}':expansion=none:x=(w-tw)/2:y=h-th-10:fontsize=28:fontcolor=white:borderw=3:bordercolor=black" \
-      -frames:v 1 -update 1 -q:v 2 "$tmp_dir/${idx}.jpg" 2>/dev/null
-  }
-
-  _sb_frame "$t1" "$l1" 1
-  _sb_frame "$t2" "$l2" 2
-  _sb_frame "$t3" "$l3" 3
-  _sb_frame "$t4" "$l4" 4
-
-  [[ -z "$out_file" ]] && out_file="/tmp/opusclip-storyboard-${clip_id}.jpg"
-
-  ffmpeg -y \
-    -i "$tmp_dir/1.jpg" -i "$tmp_dir/2.jpg" -i "$tmp_dir/3.jpg" -i "$tmp_dir/4.jpg" \
-    -filter_complex "xstack=inputs=4:layout=0_0|w0_0|0_h0|w0_h0[out]" \
-    -map "[out]" -frames:v 1 -update 1 -q:v 2 "$out_file" 2>/dev/null
-
-  rm -rf "$tmp_dir"
-
-  echo "Storyboard: $out_file" >&2
-
-  if command -v open >/dev/null 2>&1; then
-    open "$out_file"
-  elif command -v xdg-open >/dev/null 2>&1; then
-    xdg-open "$out_file"
-  fi
-
-  echo "{\"storyboard\": \"$out_file\"}"
-}
-
-# ── Trim ──────────────────────────────────────────────────────────────────
-
-cmd_trim() {
-  local project_id="" clip_id="" start_sec="" end_sec="" out_file=""
-
-  while [[ $# -gt 0 ]]; do
-    case "$1" in
-      --project) project_id="$2"; shift 2 ;;
-      --clip)    clip_id="$2"; shift 2 ;;
-      --start)   start_sec="$2"; shift 2 ;;
-      --end)     end_sec="$2"; shift 2 ;;
-      --output)  out_file="$2"; shift 2 ;;
-      *) die "trim: unknown flag '$1'" ;;
-    esac
-  done
-
-  [[ -n "$project_id" ]] || die "trim: --project is required"
-  [[ -n "$clip_id" ]]    || die "trim: --clip is required"
-  [[ -n "$start_sec" ]]  || die "trim: --start is required"
-  [[ -n "$end_sec" ]]    || die "trim: --end is required"
-  need ffmpeg
-
-  local clips_json
-  clips_json=$(api_get "$API_BASE/exportable-clips?q=findByProjectId&projectId=$project_id")
-
-  local preview_url
-  preview_url=$(echo "$clips_json" | jq -r \
-    --arg cid "$clip_id" \
-    '.data[] | select(.curationId == $cid or .id == $cid) | .uriForPreview // empty' \
-    | head -1)
-
-  [[ -n "$preview_url" ]] || die "trim: no preview video found for clip $clip_id"
-
-  local tmp_video="/tmp/opusclip-trim-${clip_id}.mp4"
-  echo "Downloading preview video..." >&2
-  curl -sS -o "$tmp_video" "$preview_url"
-
-  [[ -z "$out_file" ]] && out_file="/tmp/opusclip-trimmed-${clip_id}.mp4"
-  ffmpeg -y -i "$tmp_video" -ss "$start_sec" -to "$end_sec" -c copy "$out_file" 2>/dev/null
-
-  echo "Trimmed: $out_file" >&2
-  echo "{\"output\": \"$out_file\", \"start\": $start_sec, \"end\": $end_sec}"
-}
-
-# ── Preview ──────────────────────────────────────────────────────────────
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TEMPLATE_DIR="$SCRIPT_DIR/../templates"
-
-cmd_preview() {
-  local project_id="" collection_id="" out_file=""
-
-  while [[ $# -gt 0 ]]; do
-    case "$1" in
-      --project)    project_id="$2"; shift 2 ;;
-      --collection) collection_id="$2"; shift 2 ;;
-      --output)     out_file="$2"; shift 2 ;;
-      *) die "preview: unknown flag '$1'" ;;
-    esac
-  done
-
-  # Fetch clips
-  local url
-  if [[ -n "$project_id" ]]; then
-    url="$API_BASE/exportable-clips?q=findByProjectId&projectId=$project_id"
-  elif [[ -n "$collection_id" ]]; then
-    url="$API_BASE/exportable-clips?q=findByCollectionId&collectionId=$collection_id"
-  else
-    die "preview: --project or --collection is required"
-  fi
-
-  local clips_json
-  clips_json=$(api_get "$url")
-
-  local clip_count
-  clip_count=$(echo "$clips_json" | jq '.data | length')
-
-  if [[ "$clip_count" -eq 0 ]]; then
-    die "preview: no clips found (project may still be processing)"
-  fi
-
-  # Get project title from first clip
-  local project_title
-  project_title=$(echo "$clips_json" | jq -r '.data[0].title // "OpusClip Preview"')
-
-  # Build clip cards HTML
-  local cards=""
-  cards=$(echo "$clips_json" | jq -r '.data | sort_by(-.score) | to_entries[] | @json' | while IFS= read -r entry; do
-    local idx score title desc tags duration preview_url
-    local hook_s coherence_s connection_s trend_s
-
-    idx=$(echo "$entry" | jq -r '.key')
-    score=$(echo "$entry" | jq -r '.value.score // "—"')
-    title=$(echo "$entry" | jq -r '.value.title // "Untitled Clip"')
-    desc=$(echo "$entry" | jq -r '.value.description // ""')
-    tags=$(echo "$entry" | jq -r '.value.hashtags // ""')
-    duration=$(echo "$entry" | jq -r '((.value.durationMs // 0) / 1000 | floor) as $s | "\($s / 60 | floor):\(($s % 60) | tostring | if length < 2 then "0" + . else . end)"')
-    preview_url=$(echo "$entry" | jq -r '.value.uriForPreview // ""')
-    hook_s=$(echo "$entry" | jq -r '.value.judgeResult.hookScore // "—"')
-    coherence_s=$(echo "$entry" | jq -r '.value.judgeResult.coherenceScore // "—"')
-    connection_s=$(echo "$entry" | jq -r '.value.judgeResult.connectionScore // "—"')
-    trend_s=$(echo "$entry" | jq -r '.value.judgeResult.trendScore // "—"')
-
-    cat <<CARD
-    <div class="clip">
-      <video controls preload="metadata" src="$preview_url"></video>
-      <div class="clip-info">
-        <span class="clip-rank">#$((idx + 1))</span>
-        <span class="clip-score">Score: $score</span>
-        <span class="clip-duration">$duration</span>
-        <div class="clip-title">$title</div>
-        <div class="clip-desc">$desc</div>
-        <div class="clip-tags">$tags</div>
-        <div class="scores">
-          <span>Hook: $hook_s</span>
-          <span>Coherence: $coherence_s</span>
-          <span>Connection: $connection_s</span>
-          <span>Trend: $trend_s</span>
-        </div>
-      </div>
-    </div>
-CARD
-  done)
-
-  # Load template and substitute
-  local template_file="$TEMPLATE_DIR/preview.html"
-  [[ -f "$template_file" ]] || die "preview: template not found at $template_file"
-
-  local html
-  html=$(cat "$template_file")
-  html="${html//\{\{PROJECT_TITLE\}\}/$project_title}"
-  html="${html//\{\{CLIP_COUNT\}\}/$clip_count}"
-  html="${html//\{\{CLIP_CARDS\}\}/$cards}"
-
-  # Write output
-  if [[ -z "$out_file" ]]; then
-    out_file="/tmp/opusclip-preview-${project_id:-${collection_id}}.html"
-  fi
-
-  echo "$html" > "$out_file"
-  echo "Preview written to: $out_file" >&2
-
-  # Open in browser on macOS
-  if command -v open >/dev/null 2>&1; then
-    open "$out_file"
-  elif command -v xdg-open >/dev/null 2>&1; then
-    xdg-open "$out_file"
-  fi
-
-  echo "{\"preview\": \"$out_file\", \"clips\": $clip_count}"
-}
-
 # ── Usage ────────────────────────────────────────────────────────────────────
 
 usage() {
@@ -929,69 +513,17 @@ USAGE
 COMMANDS
   submit            Submit a video for clipping (alias: create-project)
   list              List clips for a project or collection (alias: get-clips)
-  describe          Get clip details — transcript, layout info
-  storyboard        Generate 2x2 frame grid image (requires ffmpeg)
-  trim              Trim a clip locally (requires ffmpeg)
-  preview           Generate HTML preview page and open in browser
   share             Update project visibility (alias: share-project)
   templates         List available brand templates
-  upload            Upload a local video file and create a clip project
   collections       Manage collections (list|create|delete|export|add-clip|remove-clip)
   censor            Manage censor jobs (create|status)
   post              Social posting (accounts|generate-copy|copy-status|publish|schedule|cancel)
   help              Show this help message
 
 ENVIRONMENT
-  OPUSCLIP_API_KEY        Required. Your API key from https://clip.opus.pro/dashboard
+  OPUSCLIP_API_KEY        Required. API access requires an Enterprise plan.
   OPUSCLIP_API_URL        Override API base URL (default: https://api.opus.pro/api)
-  OPUSCLIP_EXTRA_HEADERS  Semicolon-separated extra HTTP headers (e.g. "X-Foo: bar;X-Baz: qux")
-
-EXAMPLES
-  # Submit a video for clipping from a YouTube URL
-  opusclip submit --url "https://youtube.com/watch?v=..." --aspect portrait
-
-  # Submit with ClipAnything model and custom prompt
-  opusclip submit --url "https://youtube.com/watch?v=..." \\
-    --model ClipAnything --prompt "Find the funniest moments"
-
-  # List clips from a project
-  opusclip list --project PROJECT_ID
-
-  # Describe a clip (transcript, layout)
-  opusclip describe --project PROJECT_ID --clip CLIP_ID
-  opusclip describe --project PROJECT_ID --clip CLIP_ID --transcript
-
-  # Generate storyboard image from a clip
-  opusclip storyboard --project PROJECT_ID --clip CLIP_ID
-
-  # Trim a clip locally
-  opusclip trim --project PROJECT_ID --clip CLIP_ID --start 5 --end 25
-
-  # Upload a local video and clip it
-  opusclip upload --file video.mp4 --title "My Video" --durations "30,60"
-
-  # List brand templates
-  opusclip templates
-
-  # Share a project publicly
-  opusclip share --project PROJECT_ID --visibility PUBLIC
-
-  # Create and manage a collection
-  opusclip collections create --name "Best Clips"
-  opusclip collections add-clip --id COLLECTION_ID --content-id PROJECT_ID.CLIP_ID
-  opusclip collections export --id COLLECTION_ID
-
-  # Censor profanity in a clip
-  opusclip censor create --project PROJECT_ID --clip CLIP_ID --beep
-  opusclip censor status --job JOB_ID
-
-  # Social posting — list accounts, publish, schedule
-  opusclip post accounts
-  opusclip post generate-copy --project PID --clip CID --account AID --prompt "witty tone"
-  opusclip post copy-status --job JOB_ID
-  opusclip post publish --project PID --clip CID --account AID --title "My Post"
-  opusclip post schedule --project PID --clip CID --account AID --title "My Post" --at 2026-03-25T14:00:00Z
-  opusclip post cancel --schedule SCHEDULE_ID
+  OPUSCLIP_EXTRA_HEADERS  Semicolon-separated extra HTTP headers
 
 For full API docs: https://help.opus.pro/api-reference/overview
 EOF
@@ -1000,42 +532,19 @@ EOF
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 main() {
-  # Extract global flags
-  local args=()
-  for arg in "$@"; do
-    case "$arg" in
-      *)     args+=("$arg") ;;
-    esac
-  done
-
-  set -- "${args[@]+"${args[@]}"}"
-
   local cmd="${1:-help}"
   shift 2>/dev/null || true
 
   case "$cmd" in
-    # Primary names
-    submit)         cmd_create_project "$@" ;;
-    list)           cmd_get_clips "$@" ;;
-    share)          cmd_share_project "$@" ;;
-    describe)       cmd_describe "$@" ;;
-
-    storyboard)     cmd_storyboard "$@" ;;
-    trim)           cmd_trim "$@" ;;
-
-    # Aliases (backwards compat)
-    create-project) cmd_create_project "$@" ;;
-    get-clips)      cmd_get_clips "$@" ;;
-    share-project)  cmd_share_project "$@" ;;
-
-    preview)        cmd_preview "$@" ;;
-    templates)      cmd_templates "$@" ;;
-    upload)         cmd_upload "$@" ;;
-    collections)    cmd_collections "$@" ;;
-    censor)         cmd_censor "$@" ;;
-    post)           cmd_post "$@" ;;
-    help|--help|-h) usage ;;
-    version|--version|-v) echo "opusclip $VERSION" ;;
+    submit|create-project) cmd_create_project "$@" ;;
+    list|get-clips)        cmd_get_clips "$@" ;;
+    share|share-project)   cmd_share_project "$@" ;;
+    templates)             cmd_templates "$@" ;;
+    collections)           cmd_collections "$@" ;;
+    censor)                cmd_censor "$@" ;;
+    post)                  cmd_post "$@" ;;
+    help|--help|-h)        usage ;;
+    version|--version|-v)  echo "opusclip $VERSION" ;;
     *) die "unknown command '$cmd'. Run 'opusclip help' for usage." ;;
   esac
 }
