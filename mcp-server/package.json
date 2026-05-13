@@ -1,0 +1,45 @@
+{
+  "name": "@opus-pro/opusclip-mcp",
+  "version": "2.0.0",
+  "description": "MCP server for the OpusClip API — clip long videos into shorts, manage collections, post to social.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/opus-pro/opus-skills.git",
+    "directory": "mcp-server"
+  },
+  "homepage": "https://opus.pro",
+  "type": "module",
+  "main": "dist/stdio.js",
+  "bin": {
+    "opusclip-mcp": "dist/stdio.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/stdio.js",
+    "start:http": "node dist/http.js",
+    "prepublishOnly": "npm run build"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "opusclip",
+    "video",
+    "clips",
+    "social-media"
+  ]
+}

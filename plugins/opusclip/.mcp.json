@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "opusclip": {
+      "command": "npx",
+      "args": ["-y", "@opus-pro/opusclip-mcp@latest"],
+      "env": {
+        "OPUSCLIP_API_KEY": "${OPUSCLIP_API_KEY}"
+      }
+    }
+  }
+}

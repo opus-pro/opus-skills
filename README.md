@@ -1,52 +1,65 @@
 # opus-skills
 
-A skill marketplace for [OpusClip](https://opus.pro) — add video clipping, social posting, and more to your AI coding agent.
+A plugin marketplace for [OpusClip](https://opus.pro) — adds video clipping, social posting, and more to your AI coding agent. One plugin ships **a skill** (SKILL.md the model auto-invokes) and **an MCP server** (20 tools wrapping the OpusClip REST API).
 
-Install individual skills or the entire collection into Claude Code, Cursor, and other AI coding agents that support skills.
+## Install
 
-## Available Skills
+| Agent | Install path |
+|---|---|
+| **Claude Code** | `/plugin marketplace add opus-pro/opus-skills` then `/plugin install opusclip@opus-skills` — see [docs/install/claude-code.md](docs/install/claude-code.md) |
+| **Codex CLI / Codex App** | `codex plugin marketplace add github:opus-pro/opus-skills` then `/plugins` in TUI — see [docs/install/codex.md](docs/install/codex.md) |
+| **Claude.ai** | Add Custom Connector + upload SKILL.md zip (manual, two steps) — see [docs/install/claude-ai.md](docs/install/claude-ai.md) |
+| **Claude Cowork** | Same as Claude.ai (connectors propagate) — see [docs/install/cowork.md](docs/install/cowork.md) |
+| **OpenClaw** | `openclaw plugins install github:opus-pro/opus-skills/plugins/opusclip` — see [docs/install/openclaw.md](docs/install/openclaw.md) |
+| **Any agent with `npx skills`** | `npx skills add opus-pro/opus-skills` (skill only, no MCP) |
 
-| Skill | Description |
-|-------|-------------|
-| [opusclip](skills/opusclip/) | Turn long-form videos into short clips and post them to social platforms via the OpusClip API |
+## What's in the box
 
-## Installation
-
-```bash
-npx skills add opus-pro/opus-skills
-```
-
-Or via the Claude Code plugin marketplace:
-
-```
-/plugin marketplace add opus-pro/opus-skills
-/plugin install opusclip@opus-skills
-```
-
-### Manual installation
-
-```bash
-git clone https://github.com/opus-pro/opus-skills.git
-cp -r opus-skills/skills/opusclip ~/.claude/skills/opusclip
-```
+- **Skill** at `plugins/opusclip/skills/opusclip/SKILL.md` — tells the model when and how to call OpusClip. Auto-triggers on phrases like "clip this video", "make shorts", "post to YouTube".
+- **MCP server** at `plugins/opusclip/.mcp.json` → `npx -y @opus-pro/opusclip-mcp@latest` — 20 tools covering the OpusClip REST API: submit, list, describe, brand templates, project sharing, local upload, collections (6), censoring (2), and social posting (6).
+- **Bash CLI fallback** at `plugins/opusclip/skills/opusclip/scripts/opusclip` — for agents without MCP, or for ffmpeg-based local utilities (`storyboard`, `trim`).
+- **Reference docs** at `plugins/opusclip/skills/opusclip/references/api-reference.md`.
 
 ## Prerequisites
 
-- `OPUSCLIP_API_KEY` — API access requires an [Enterprise plan](https://www.opus.pro/pricing?utm_source=cli&utm_medium=opus)
-- `curl` and `jq` installed
-- `ffmpeg` (optional, for storyboard and trim commands)
+- `OPUSCLIP_API_KEY` — from <https://clip.opus.pro/dashboard>. API access requires an [Enterprise plan](https://www.opus.pro/pricing?utm_source=cli&utm_medium=opus).
+- For Claude.ai / Cowork: a deployed HTTPS endpoint of the MCP server (the package supports it via `node dist/http.js` — hosted endpoint planned at `https://mcp.opus.pro/mcp`).
 
-## What You Can Do
+## Layout
 
-- **Clip videos** — submit YouTube/Vimeo/uploaded videos for AI-powered clipping
-- **Review clips** — list, describe, preview, and storyboard generated clips
-- **Organize** — manage collections, apply brand templates, censor profanity
-- **Post to social** — publish or schedule clips to YouTube, TikTok, Facebook, Instagram, LinkedIn, and X
+```
+opus-skills/
+├── .claude-plugin/marketplace.json      # marketplace — read by Claude Code, Codex, OpenClaw
+├── plugins/opusclip/                    # the plugin
+│   ├── .claude-plugin/plugin.json       # Claude Code manifest
+│   ├── .codex-plugin/plugin.json        # Codex manifest (adds `interface` for marketplace polish)
+│   ├── .mcp.json                        # MCP server config (cross-agent)
+│   └── skills/opusclip/
+│       ├── SKILL.md
+│       ├── scripts/opusclip             # bash CLI fallback
+│       └── references/api-reference.md
+├── mcp-server/                          # @opus-pro/opusclip-mcp source (TS)
+└── docs/install/                        # per-agent install guides
+```
+
+## Develop
+
+```bash
+# Skill / plugin
+git clone https://github.com/opus-pro/opus-skills.git
+cd opus-skills
+
+# MCP server
+cd mcp-server
+npm install && npm run build
+OPUSCLIP_API_KEY=... npm start            # stdio
+OPUSCLIP_API_URL=... npm run start:http   # HTTP (PORT=3000, path=/mcp)
+```
 
 ## Contributing
 
-Want to add a new skill? Each skill lives in its own directory under `skills/`. See [skills/opusclip](skills/opusclip/) for an example of the structure.
+CODEOWNERS lists current maintainers. Open a PR; CI runs eval on the skill against a fixed scenario set.
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).
