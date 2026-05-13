@@ -1,0 +1,13 @@
+{
+  "name": "opusclip",
+  "version": "2.0.0",
+  "description": "Turn long-form videos into short clips and post them to social platforms via the OpusClip API. Ships an MCP server (20 tools) and a skill.",
+  "author": {
+    "name": "OpusClip",
+    "url": "https://opus.pro"
+  },
+  "homepage": "https://opus.pro",
+  "repository": "https://github.com/opus-pro/opus-skills",
+  "license": "MIT",
+  "keywords": ["video", "clips", "social-media", "opusclip", "mcp"]
+}
