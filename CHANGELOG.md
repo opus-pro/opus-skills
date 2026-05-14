@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.2.2 — caption-replace bugfix
+
+- Fix `edit-clip caption-replace` writing new textElements to only `.sections[0].segments[0]`, leaving every other segment + section's original textElements in place. Now collapses the CaptionTrack to a single section + single segment containing every word from the transcript, matching the doc claim "replace the whole caption track". Caught by the 2026-05-14 live eval (6 new words ended up prepended to 46 original words on a real clip).
+
 ## 2.2.1 — v2.2.0 eval follow-ups
 
 Patches three doc gaps surfaced by the 2026-05-14 skill eval (28/28 pass — opus-skills-eval `evals/results/2026-05-14-v2.2.0.json`) and one shellcheck warning the same eval CI caught:
