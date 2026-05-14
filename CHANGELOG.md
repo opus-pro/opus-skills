@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.2.3 — launch-readiness pass
+
+Findings from the 2026-05-14 full launch-readiness eval (opus-skills-eval `evals/results/2026-05-14-v2.2.2-launch-readiness.json`). All four must-fix items in one patch:
+
+- **`storyboard`**: detect `drawtext` (libfreetype) availability at runtime. Fall back to an unlabeled 2×2 grid when missing, with a one-line stderr note pointing at `brew reinstall ffmpeg`. Removed `2>/dev/null` from every ffmpeg call — failures now surface with a clear `storyboard: ffmpeg ...` message instead of silent exit 8.
+- **`need ffmpeg` install hint**: `storyboard` and local `trim` (the two ffmpeg-dependent commands) now tell users how to install ffmpeg if missing, and clarify that the command is local-only (no API alternative for storyboard; `edit-clip trim` is the server-side alternative for trim).
+- **Help text**: `opusclip help` EXAMPLES now show `--durations` on the bare-submit lines, matching SKILL.md. The previous copy-paste from `help` would have hit the v2.2.1-era 500.
+- **Version drift**: `.codex-plugin/plugin.json` and `.claude-plugin/marketplace.json` (×2 places) were stuck at 2.1.0 from PR #21. Bumped to 2.2.3 so registry installs report a consistent version.
+
 ## 2.2.2 — caption-replace bugfix
 
 - Fix `edit-clip caption-replace` writing new textElements to only `.sections[0].segments[0]`, leaving every other segment + section's original textElements in place. Now collapses the CaptionTrack to a single section + single segment containing every word from the transcript, matching the doc claim "replace the whole caption track". Caught by the 2026-05-14 live eval (6 new words ended up prepended to 46 original words on a real clip).

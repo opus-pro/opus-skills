@@ -7,13 +7,27 @@ set -euo pipefail
 # Requires: curl, jq
 # Auth: Set OPUSCLIP_API_KEY environment variable
 
-VERSION="2.2.2"
+VERSION="2.2.3"
 API_BASE="${OPUSCLIP_API_URL:-https://api.opus.pro/api}"
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 die()  { echo "error: $*" >&2; exit 1; }
-need() { command -v "$1" >/dev/null 2>&1 || die "$1 is required but not installed"; }
+need() {
+  local bin="$1" hint="${2:-}"
+  if ! command -v "$bin" >/dev/null 2>&1; then
+    if [[ -n "$hint" ]]; then
+      die "$bin is required for this command but not installed. $hint"
+    else
+      die "$bin is required but not installed"
+    fi
+  fi
+}
+
+# Whether ffmpeg has a given filter (e.g. drawtext, requires libfreetype).
+ffmpeg_has_filter() {
+  ffmpeg -hide_banner -filters 2>/dev/null | awk '{print $2}' | grep -qx "$1"
+}
 
 # Strip project prefix from composite clip IDs (e.g. "P123.ClipABC" → "ClipABC")
 clip_suffix() {
@@ -664,7 +678,7 @@ cmd_storyboard() {
 
   [[ -n "$project_id" ]] || die "storyboard: --project is required"
   [[ -n "$clip_id" ]]    || die "storyboard: --clip is required"
-  need ffmpeg
+  need ffmpeg "Install via 'brew install ffmpeg' (macOS) or your package manager. storyboard is local-only — needs ffmpeg to render the grid."
 
   local clips_json
   clips_json=$(api_get "$API_BASE/exportable-clips?q=findByProjectId&projectId=$project_id")
@@ -705,16 +719,32 @@ cmd_storyboard() {
   l3=$(_sb_label "$t3" "$dur_int")
   l4=$(_sb_label "$t4" "$dur_int")
 
-  # Extract 4 frames, add time labels, then combine into 2x2 grid
+  # Extract 4 frames, optionally label them, then combine into 2x2 grid.
+  # Labels need ffmpeg's drawtext filter (requires libfreetype). On builds
+  # without it (some minimal ffmpeg installs), fall back to unlabeled frames
+  # instead of failing silently — the grid is still useful for visual review.
   local tmp_dir="/tmp/opusclip-sb-$$"
   mkdir -p "$tmp_dir"
 
+  local can_label="true"
+  if ! ffmpeg_has_filter drawtext; then
+    can_label="false"
+    echo "warning: ffmpeg lacks the drawtext filter — generating an unlabeled storyboard. For time labels, reinstall ffmpeg with libfreetype (e.g. 'brew reinstall ffmpeg' on macOS)." >&2
+  fi
+
   _sb_frame() {
     local ts=$1 label=$2 idx=$3
-    ffmpeg -y -ss "$ts" -i "$tmp_video" -frames:v 1 -update 1 -q:v 2 "$tmp_dir/raw${idx}.jpg" 2>/dev/null
-    ffmpeg -y -i "$tmp_dir/raw${idx}.jpg" \
-      -vf "drawtext=text='${label}':expansion=none:x=(w-tw)/2:y=h-th-10:fontsize=28:fontcolor=white:borderw=3:bordercolor=black" \
-      -frames:v 1 -update 1 -q:v 2 "$tmp_dir/${idx}.jpg" 2>/dev/null
+    if ! ffmpeg -y -ss "$ts" -i "$tmp_video" -frames:v 1 -update 1 -q:v 2 "$tmp_dir/raw${idx}.jpg" >/dev/null 2>&1; then
+      die "storyboard: ffmpeg failed to extract frame at ${ts}s from $tmp_video"
+    fi
+    if [[ "$can_label" == "true" ]]; then
+      ffmpeg -y -i "$tmp_dir/raw${idx}.jpg" \
+        -vf "drawtext=text='${label}':expansion=none:x=(w-tw)/2:y=h-th-10:fontsize=28:fontcolor=white:borderw=3:bordercolor=black" \
+        -frames:v 1 -update 1 -q:v 2 "$tmp_dir/${idx}.jpg" >/dev/null 2>&1 \
+        || cp "$tmp_dir/raw${idx}.jpg" "$tmp_dir/${idx}.jpg"
+    else
+      cp "$tmp_dir/raw${idx}.jpg" "$tmp_dir/${idx}.jpg"
+    fi
   }
 
   _sb_frame "$t1" "$l1" 1
@@ -724,10 +754,13 @@ cmd_storyboard() {
 
   [[ -z "$out_file" ]] && out_file="/tmp/opusclip-storyboard-${clip_id}.jpg"
 
-  ffmpeg -y \
+  if ! ffmpeg -y \
     -i "$tmp_dir/1.jpg" -i "$tmp_dir/2.jpg" -i "$tmp_dir/3.jpg" -i "$tmp_dir/4.jpg" \
     -filter_complex "xstack=inputs=4:layout=0_0|w0_0|0_h0|w0_h0[out]" \
-    -map "[out]" -frames:v 1 -update 1 -q:v 2 "$out_file" 2>/dev/null
+    -map "[out]" -frames:v 1 -update 1 -q:v 2 "$out_file" >/dev/null 2>&1; then
+    rm -rf "$tmp_dir"
+    die "storyboard: ffmpeg xstack failed to combine frames into $out_file"
+  fi
 
   rm -rf "$tmp_dir"
 
@@ -762,7 +795,7 @@ cmd_trim() {
   [[ -n "$clip_id" ]]    || die "trim: --clip is required"
   [[ -n "$start_sec" ]]  || die "trim: --start is required"
   [[ -n "$end_sec" ]]    || die "trim: --end is required"
-  need ffmpeg
+  need ffmpeg "Install via 'brew install ffmpeg' (macOS) or your package manager. trim is local — no API call, just an ffmpeg cut. (For server-side trim with captions, use 'opusclip edit-clip trim' instead.)"
 
   local clips_json
   clips_json=$(api_get "$API_BASE/exportable-clips?q=findByProjectId&projectId=$project_id")
@@ -1214,11 +1247,12 @@ ENVIRONMENT
   OPUSCLIP_EXTRA_HEADERS  Semicolon-separated extra HTTP headers (e.g. "X-Foo: bar;X-Baz: qux")
 
 EXAMPLES
-  # Submit a video for clipping from a YouTube URL
-  opusclip submit --url "https://youtube.com/watch?v=..." --aspect portrait
+  # Submit a video for clipping from a YouTube URL.
+  # --durations is required in practice (API rejects payloads without curationPref.clipDurations).
+  opusclip submit --url "https://youtube.com/watch?v=..." --durations "30,60,90" --aspect portrait
 
   # Submit with ClipAnything model and custom prompt
-  opusclip submit --url "https://youtube.com/watch?v=..." \\
+  opusclip submit --url "https://youtube.com/watch?v=..." --durations "30,60,90" \\
     --model ClipAnything --prompt "Find the funniest moments"
 
   # List clips from a project
