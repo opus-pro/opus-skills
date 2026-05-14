@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.2.4 — edit-clip / describe bugfixes from 2026-05-15 session
+
+Three bugs surfaced while exercising the edit pipeline end-to-end:
+
+- **`describe` now emits render-state fields**. The default output added `durationMs`, `uriForPreview`, `uriForExport`, `renderAsVideoPreview`, and `renderAsVideoFile` (the object with `.pending`). The documented polling loop (`jq -e '.renderAsVideoFile.pending == false'`) silently never resolved before because those keys weren't in the CLI output.
+- **`edit-clip trim` clamps `--end` to `durationMs`**. Extending past source duration is an engine no-op (the EditingScript sectionTimeline gets clamped silently and the re-render publishes the original mp4). The CLI now clamps deterministically, surfaces `clampedEndMs` + `note` in the response, and dies early if the clamped window is degenerate.
+- **`edit-clip caption-fix` supports multi-word `--find`**. Captions are stored per-word with per-token timing, so the previous regex `gsub` on each textElement never matched a multi-word string. The CLI now tokenizes `--find` / `--replace`; multi-word fixes walk consecutive textElements and replace tokens 1:1 (`"2 lonely"` → `"Two lonely"` works). Different-length rewrites die with a pointer to `caption-replace` / `apply`. Single-word `--find` keeps the existing regex `gsub` path (back-compat for in-word matches like `"haha"` → `"ha"`).
+
 ## 2.2.3 — launch-readiness pass
 
 Findings from the 2026-05-14 full launch-readiness eval (opus-skills-eval `evals/results/2026-05-14-v2.2.2-launch-readiness.json`). All four must-fix items in one patch:

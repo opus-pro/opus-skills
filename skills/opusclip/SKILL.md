@@ -144,7 +144,11 @@ opusclip edit-clip trim            --project PID --clip CID --start S --end E
 
 All sub-verbs return `{jobId}` (or `{message, matchCount: 0}` when nothing matched). Poll status via `opusclip describe --project PID --clip CID` — `renderAsVideoFile.pending` flips false when the new render is ready and `uriForExport` then points at the new mp4.
 
-`opusclip edit-clip trim` is the server-side, captioned, brand-styled version. The top-level `opusclip trim` is the local-ffmpeg fast path on the preview mp4 (free, instant, no captions). Use whichever fits the situation.
+`caption-fix` notes:
+- **Single-word `--find`** is a regex `gsub` over every caption textElement's `.text` (so it matches inside words too: `--find "haha" --replace "ha"`).
+- **Multi-word `--find`** walks consecutive textElements and replaces them 1:1 — `--replace` must have the same word count (`"2 lonely"` → `"Two lonely"` works, `"2"` → `"Two and"` does not). For different-length rewrites use `caption-replace` (whole transcript) or `apply` (custom EditingScript).
+
+`edit-clip trim` is the server-side, captioned, brand-styled version. The top-level `opusclip trim` is the local-ffmpeg fast path on the preview mp4 (free, instant, no captions). Use whichever fits the situation. `edit-clip trim` clamps `--end` to the clip's current `durationMs` (the engine no-ops on extends); the response includes `clampedEndMs` and a `note` when the clamp triggers.
 
 ### describe
 
@@ -163,7 +167,7 @@ opusclip describe --layout --project PROJECT_ID --clip CLIP_ID
 | `--transcript` | Show only transcript text |
 | `--layout` | Show only layout/framing info |
 
-Without `--transcript` or `--layout`, shows both. Use `--transcript` when you need to understand what was said. Use `--layout` to check current framing before suggesting layout changes.
+Without `--transcript` or `--layout`, the default output includes content fields (`title`, `description`, `transcript`, `hashtags`, `keywords`, `score`, `duration_sec`/`durationMs`) **and** render-state fields (`uriForPreview`, `uriForExport`, `renderAsVideoPreview`, `renderAsVideoFile`) — the latter is what powers re-render polling. Use `--transcript` when you only need the spoken text. Use `--layout` to check current framing before suggesting layout changes.
 
 Polling a re-render (after any `edit-clip` sub-verb):
 
