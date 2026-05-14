@@ -1048,7 +1048,7 @@ cmd_edit_clip_trim() {
   edited=$(echo "$script_resp" | jq -c --argjson s "$start_ms" --argjson e "$end_ms" '
     .editingScript
     | .tracks |= map(
-        if (.sections // []) | length > 0 and (.sections[0].sectionTimeline // null) != null then
+        if ((.sections // []) | length) > 0 and (.sections[0].sectionTimeline // null) != null then
           .sections[0].sectionTimeline.in  = $s
           | .sections[0].sectionTimeline.out = $e
           | .sections[0].sectionDuration.sO = $s
@@ -1256,7 +1256,7 @@ EXAMPLES
 
   # Censor profanity in a clip — dictionary-based; --beep adds a sound effect
   opusclip edit-clip censor --project PROJECT_ID --clip CLIP_ID --beep
-  # status via `opusclip describe` (renderAsVideoFile.pending flips false when ready)
+  # status via 'opusclip describe' (renderAsVideoFile.pending flips false when ready)
 
   # Social posting — list accounts, publish, schedule
   opusclip post accounts

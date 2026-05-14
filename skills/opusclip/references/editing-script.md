@@ -118,7 +118,7 @@ Equivalent power-user form:
 opusclip edit-clip get --project P --clip C --output script.json
 jq '
   .tracks |= map(
-    if (.sections // []) | length > 0 and (.sections[0].sectionTimeline // null) != null then
+    if ((.sections // []) | length) > 0 and (.sections[0].sectionTimeline // null) != null then
       .sections[0].sectionTimeline.in  = 0
       | .sections[0].sectionTimeline.out = 15000
       | .sections[0].sectionDuration.sO = 0
