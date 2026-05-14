@@ -16,7 +16,7 @@ A plugin marketplace for [OpusClip](https://opus.pro) — adds video clipping, s
 ## What's in the box
 
 - **Skill** at `plugins/opusclip/skills/opusclip/SKILL.md` — tells the model when and how to call OpusClip. Auto-triggers on phrases like "clip this video", "make shorts", "post to YouTube".
-- **MCP server** at `plugins/opusclip/.mcp.json` → `npx -y @opus-pro/opusclip-mcp@latest` — 20 tools covering the OpusClip REST API: submit, list, describe, brand templates, project sharing, local upload, collections (6), censoring (2), and social posting (6).
+- **MCP server** bundled at `plugins/opusclip/mcp-server.mjs` (single-file esbuild bundle of `mcp-server/`, run by `node` via `.mcp.json`) — 20 tools covering the OpusClip REST API: submit, list, describe, brand templates, project sharing, local upload, collections (6), censoring (2), and social posting (6).
 - **Bash CLI fallback** at `plugins/opusclip/skills/opusclip/scripts/opusclip` — for agents without MCP, or for ffmpeg-based local utilities (`storyboard`, `trim`).
 - **Reference docs** at `plugins/opusclip/skills/opusclip/references/api-reference.md`.
 
@@ -34,11 +34,12 @@ opus-skills/
 │   ├── .claude-plugin/plugin.json       # Claude Code manifest
 │   ├── .codex-plugin/plugin.json        # Codex manifest (adds `interface` for marketplace polish)
 │   ├── .mcp.json                        # MCP server config (cross-agent)
+│   ├── mcp-server.mjs                   # bundled MCP server (esbuild output, committed)
 │   └── skills/opusclip/
 │       ├── SKILL.md
 │       ├── scripts/opusclip             # bash CLI fallback
 │       └── references/api-reference.md
-├── mcp-server/                          # @opus-pro/opusclip-mcp source (TS)
+├── mcp-server/                          # MCP server source (TS) — build with `npm run bundle`
 └── docs/install/                        # per-agent install guides
 ```
 
@@ -51,10 +52,13 @@ cd opus-skills
 
 # MCP server
 cd mcp-server
-npm install && npm run build
-OPUSCLIP_API_KEY=... npm start            # stdio
-OPUSCLIP_API_URL=... npm run start:http   # HTTP (PORT=3000, path=/mcp)
+npm install
+npm run bundle                            # writes ../plugins/opusclip/mcp-server.mjs (commit this)
+npm run build && OPUSCLIP_API_KEY=... npm start            # stdio dev run
+npm run build && OPUSCLIP_API_URL=... npm run start:http   # HTTP (PORT=3000, path=/mcp)
 ```
+
+The bundled `mcp-server.mjs` is the runtime artifact shipped with the plugin — re-run `npm run bundle` and commit it whenever `mcp-server/src/**` changes.
 
 ## Contributing
 
