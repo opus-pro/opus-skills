@@ -1,13 +1,12 @@
 {
   "name": "opusclip",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Turn long-form videos into short clips and post them to social platforms via the OpusClip API.",
   "skills": "./skills/",
-  "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "OpusClip",
     "shortDescription": "Turn long videos into short clips",
-    "longDescription": "OpusClip clips long-form videos into vertical shorts using AI, and can publish or schedule them on YouTube, TikTok, Instagram, Facebook, LinkedIn, and X. Ships a skill (model knows when to use it) and an MCP server (20 tools wrapping the REST API).",
+    "longDescription": "OpusClip clips long-form videos into vertical shorts using AI, and can publish or schedule them on YouTube, TikTok, Instagram, Facebook, LinkedIn, and X. Ships a skill (model knows when to use it) that drives the OpusClip REST API via a bundled bash CLI.",
     "developerName": "OpusClip",
     "category": "Productivity",
     "capabilities": [

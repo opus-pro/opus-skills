@@ -4,22 +4,22 @@
     "name": "OpusClip"
   },
   "metadata": {
-    "description": "Official OpusClip plugins for AI coding agents — skill + MCP server",
-    "version": "2.0.0"
+    "description": "Official OpusClip plugins for AI coding agents — skill for OpusClip",
+    "version": "2.1.0"
   },
   "plugins": [
     {
       "name": "opusclip",
       "source": "./plugins/opusclip",
-      "description": "Turn long-form videos into short clips and post them to social platforms via the OpusClip API. Ships an MCP server and a skill.",
-      "version": "2.0.0",
+      "description": "Turn long-form videos into short clips and post them to social platforms via the OpusClip API. Ships a skill that drives the API via a bundled bash CLI.",
+      "version": "2.1.0",
       "author": {
         "name": "OpusClip"
       },
       "homepage": "https://opus.pro",
       "repository": "https://github.com/opus-pro/opus-skills",
       "license": "MIT",
-      "keywords": ["video", "clips", "social-media", "youtube", "tiktok", "opusclip", "mcp"],
+      "keywords": ["video", "clips", "social-media", "youtube", "tiktok", "opusclip"],
       "category": "productivity"
     }
   ]

@@ -1,24 +1,23 @@
 # Install on Claude Cowork
 
-Cowork is the Anthropic-official desktop AI agent (macOS, Windows) on the Team / Enterprise plan. It shares the Claude.ai connector + skill model.
+Cowork is the Anthropic-official desktop AI agent (macOS, Windows) on the Team / Enterprise plan. It shares the Claude.ai skill model.
 
-## Step 1 — Add the MCP server as a Custom Connector
+## Upload the skill
 
-Same flow as Claude.ai (see [claude-ai.md](claude-ai.md)). Custom connectors configured on your claude.ai account propagate to Cowork.
+Same `.zip` upload as Claude.ai (see [claude-ai.md](claude-ai.md)). Skills uploaded at <https://claude.ai> appear in Cowork automatically.
 
-1. <https://claude.ai> → Settings → **Connectors** → **Add custom connector**
-2. URL: `https://mcp.opus.pro/mcp` (see hosting note in [claude-ai.md](claude-ai.md))
-3. Auth: Bearer token — paste your `OPUSCLIP_API_KEY`
-4. Save — the connector becomes available in Cowork automatically
+## Configure
 
-## Step 2 — Upload the skill (optional)
-
-Same `.zip` upload as Claude.ai. Skills uploaded at <https://claude.ai> appear in Cowork too.
+Set `OPUSCLIP_API_KEY` in the skill's environment, or have Claude export it in the code-execution session. Get a key from <https://clip.opus.pro/dashboard>.
 
 ## Cowork-specific advantage
 
-Cowork has **local filesystem access** (unlike Claude.ai web). So `upload_local_video` *could* work — but the MCP server is still remote, and the remote server can't read your local files. To upload a local video from Cowork, drag it into a public bucket first (or use the bash CLI inside Cowork's terminal: `scripts/opusclip upload --file ...`).
+Cowork has **local filesystem access** (unlike Claude.ai web), so the bash CLI's `opusclip upload --file PATH` works against your machine when Cowork runs the skill locally. For Claude.ai you'd need to use a public URL with `opusclip submit --url`.
+
+## Future: hosted MCP
+
+A hosted HTTP MCP server is planned at `https://mcp.opus.pro/mcp` and will register as a Custom Connector that propagates from <https://claude.ai> into Cowork. Until then, the skill is the integration.
 
 ## Plan requirements
 
-Cowork is Team or Enterprise only. Role-based access controls (Enterprise) let admins lock or pre-approve which connectors and skills are available to seats.
+Cowork is Team or Enterprise only. Role-based access controls (Enterprise) let admins lock or pre-approve which skills are available to seats.
