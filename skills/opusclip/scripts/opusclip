@@ -435,47 +435,6 @@ cmd_collections() {
 
 # ── Censor ───────────────────────────────────────────────────────────────────
 
-cmd_censor() {
-  local subcmd="${1:-}"; shift 2>/dev/null || true
-
-  case "$subcmd" in
-    create)
-      local project_id="" clip_id="" beep="false"
-      while [[ $# -gt 0 ]]; do
-        case "$1" in
-          --project) project_id="$2"; shift 2 ;;
-          --clip)    clip_id="$2"; shift 2 ;;
-          --beep)    beep="true"; shift ;;
-          *) die "censor create: unknown flag '$1'" ;;
-        esac
-      done
-      [[ -n "$project_id" ]] || die "censor create: --project is required"
-      [[ -n "$clip_id" ]]    || die "censor create: --clip is required"
-      clip_id=$(clip_suffix "$clip_id" "$project_id")
-      local payload
-      payload=$(jq -n --arg pid "$project_id" --arg cid "$clip_id" --argjson beep "$beep" \
-        '{projectId: $pid, clipId: $cid, options: {beepSound: $beep}}')
-      api_post "$API_BASE/censor-jobs" "$payload" | output
-      ;;
-
-    status)
-      local job_id=""
-      while [[ $# -gt 0 ]]; do
-        case "$1" in
-          --job) job_id="$2"; shift 2 ;;
-          *) die "censor status: unknown flag '$1'" ;;
-        esac
-      done
-      [[ -n "$job_id" ]] || die "censor status: --job is required"
-      api_get "$API_BASE/censor-jobs/$job_id" | output
-      ;;
-
-    *)
-      die "censor: unknown subcommand '$subcmd' (use create|status)"
-      ;;
-  esac
-}
-
 # ── Post (Social Posting) ─────────────────────────────────────────────────
 
 cmd_post() {
@@ -851,9 +810,10 @@ cmd_edit_clip() {
     apply)           cmd_edit_clip_apply "$@" ;;
     caption-fix)     cmd_edit_clip_caption_fix "$@" ;;
     caption-replace) cmd_edit_clip_caption_replace "$@" ;;
+    censor)          cmd_edit_clip_censor "$@" ;;
     trim)            cmd_edit_clip_trim "$@" ;;
     *)
-      die "edit-clip: unknown subcommand '$subcmd' (use get|apply|caption-fix|caption-replace|trim)"
+      die "edit-clip: unknown subcommand '$subcmd' (use get|apply|caption-fix|caption-replace|censor|trim)"
       ;;
   esac
 }
@@ -1022,6 +982,30 @@ cmd_edit_clip_caption_replace() {
   local body
   body=$(jq -nc --argjson s "$edited" '{editingScript: $s}')
   api_post "$API_BASE/exportable-clips/$project_id.$cid/re-render" "$body" | output
+}
+
+# Profanity censor: server-side dictionary-based caption mutation + beep audio.
+# Hits the existing /api/censor-jobs endpoint (predates the unified /re-render
+# primitive). Under the hood it does the same engine save-and-render call;
+# the CLI just routes to a different controller. Poll status via
+# `opusclip describe --project P --clip C` (renderAsVideoFile.pending).
+cmd_edit_clip_censor() {
+  local project_id="" clip_id="" beep="false"
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --project) project_id="$2"; shift 2 ;;
+      --clip)    clip_id="$2"; shift 2 ;;
+      --beep)    beep="true"; shift ;;
+      *) die "edit-clip censor: unknown flag '$1'" ;;
+    esac
+  done
+  [[ -n "$project_id" ]] || die "edit-clip censor: --project is required"
+  [[ -n "$clip_id" ]]    || die "edit-clip censor: --clip is required"
+  clip_id=$(clip_suffix "$clip_id" "$project_id")
+  local payload
+  payload=$(jq -n --arg pid "$project_id" --arg cid "$clip_id" --argjson beep "$beep" \
+    '{projectId: $pid, clipId: $cid, options: {beepSound: $beep}}')
+  api_post "$API_BASE/censor-jobs" "$payload" | output
 }
 
 # Server-side trim: shrink the clip via re-render (charged; opposite of local `trim`)
@@ -1203,13 +1187,12 @@ COMMANDS
   storyboard        Generate 2x2 frame grid image (requires ffmpeg)
   trim              Trim a clip locally (requires ffmpeg, no API call)
   edit-clip         Server-side clip edits via re-render (charged):
-                    get | apply | caption-fix | caption-replace | trim
+                    get | apply | caption-fix | caption-replace | censor | trim
   preview           Generate HTML preview page and open in browser
   share             Update project visibility (alias: share-project)
   templates         List available brand templates
   upload            Upload a local video file and create a clip project
   collections       Manage collections (list|create|delete|export|add-clip|remove-clip)
-  censor            Manage censor jobs (create|status)
   post              Social posting (accounts|generate-copy|copy-status|publish|schedule|cancel)
   help              Show this help message
 
@@ -1271,9 +1254,9 @@ EXAMPLES
   opusclip collections add-clip --id COLLECTION_ID --content-id PROJECT_ID.CLIP_ID
   opusclip collections export --id COLLECTION_ID
 
-  # Censor profanity in a clip
-  opusclip censor create --project PROJECT_ID --clip CLIP_ID --beep
-  opusclip censor status --job JOB_ID
+  # Censor profanity in a clip — dictionary-based; --beep adds a sound effect
+  opusclip edit-clip censor --project PROJECT_ID --clip CLIP_ID --beep
+  # status via `opusclip describe` (renderAsVideoFile.pending flips false when ready)
 
   # Social posting — list accounts, publish, schedule
   opusclip post accounts
@@ -1325,7 +1308,6 @@ main() {
     templates)      cmd_templates "$@" ;;
     upload)         cmd_upload "$@" ;;
     collections)    cmd_collections "$@" ;;
-    censor)         cmd_censor "$@" ;;
     post)           cmd_post "$@" ;;
     help|--help|-h) usage ;;
     version|--version|-v) echo "opusclip $VERSION" ;;
