@@ -13,7 +13,7 @@ A skill marketplace for [OpusClip](https://opus.pro) — adds video clipping, so
 | **Claude Cowork** | Same zip upload as Claude.ai (propagates to Cowork) |
 | **Any host with `npx skills`** | `npx skills add opus-pro/opus-skills` |
 
-Then export your key (from <https://clip.opus.pro/dashboard>, Enterprise plan required) in the shell that launches your agent:
+Then export your key (from <https://clip.opus.pro/dashboard>, Enterprise or Pro plan required) in the shell that launches your agent:
 
 ```bash
 export OPUSCLIP_API_KEY=sk_...

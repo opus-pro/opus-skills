@@ -2,24 +2,14 @@
 
 ## 2.1.0 — Pure-skill repo
 
-The bundled stdio MCP server (introduced in 2.0.0) only worked on hosts that already have shell access — exactly the hosts where the bash CLI also works. It didn't unlock any audience the skill couldn't already serve, and it added a maintenance lane (drift between MCP tools and bash commands) plus an extra install-failure mode. This release **returns the repo to its pre-2.0.0 pure-skill shape**: a single skill at `skills/opusclip/` that drives the OpusClip REST API via a bundled bash CLI. The skill's eval went 15/19 → 19/19 in 1.1.0 on the bash CLI path; that's the path that ships.
+Reverts the 2.0.0 plugin-marketplace + MCP changes. Back to the pre-2.0.0 shape: one skill at `skills/opusclip/` driving the OpusClip REST API via the bundled bash CLI.
 
-### Removed
-- `plugins/opusclip/.mcp.json` — MCP server config.
-- `plugins/opusclip/mcp-server.mjs` — bundled stdio MCP server JS.
-- MCP-aware sections of `SKILL.md` (tool dispatch, MCP tool table, MCP tool argument shapes).
-
-### Restored
-- `skills/opusclip/templates/preview.html` — the 2.0.0 marketplace rebase deleted this template but kept the bash `cmd_preview` function + dispatch, leaving `opusclip preview` broken with "template not found". Template is back; `opusclip preview --project ID` works again.
-- `SKILL.md` is now byte-identical to the 1.x eval-tuned baseline (`ee122a9`, the 19/19 version from #12) — including the `### preview` subsection and the preview step in the "Clip a YouTube video" workflow.
-- **Pre-2.0.0 directory layout.** The `plugins/opusclip/` wrapper (introduced in 2.0.0 to host `.mcp.json` and `mcp-server.mjs` at a plugin root) is gone. Skill lives at `skills/opusclip/` again; `.claude-plugin/plugin.json` and `.codex-plugin/plugin.json` move inside it. Marketplace `source` field updated. Net: same layout as pre-2.0.0, two fewer directory levels.
-
-### Changed
-- README install table simplified — no more two-step Custom Connector + skill-upload for Claude.ai / Cowork. Skill upload is the one step.
-- All `docs/install/*.md` updated to drop MCP setup.
-
-- `mcp-server/` source directory — out of scope for this repo.
-- `docs/install/` per-host install guides. SKILL.md and the README cover everything users need; the per-host walkthroughs were duplicating the same one-line install commands.
+- Drop the bundled stdio MCP server (`.mcp.json`, `mcp-server.mjs`, `mcp-server/` source) — duplicated what the bash CLI already does on the same hosts.
+- Drop the `plugins/opusclip/` wrapper — only existed to host MCP config at a plugin root.
+- Drop `docs/install/` — README install table + SKILL.md cover everything.
+- Restore `skills/opusclip/templates/preview.html`; `opusclip preview` is no longer shipped-broken.
+- `SKILL.md` is byte-identical to the 1.x eval-tuned baseline (19/19 from #12).
+- `OPUSCLIP_API_KEY` access now also available on the Pro plan, not just Enterprise.
 
 ## 2.0.0 — Plugin marketplace + MCP server
 
