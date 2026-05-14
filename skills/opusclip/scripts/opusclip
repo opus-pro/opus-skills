@@ -986,49 +986,55 @@ be 1:1. For a different-length rewrite use:
   opusclip edit-clip caption-replace --project P --clip C --transcript <file>
   opusclip edit-clip apply           --project P --clip C --script    <file>"
 
-    # Apply seq-replace to every CaptionTrack section/segment; tally matches.
+    # Flatten every CaptionTrack's textElements into a single ordered list
+    # tagged with (ti, si, gi, ei) provenance, run sequence search on the flat
+    # list, then write the 1:1 replacements back to their original positions.
+    # This is the only way to match phrases that cross segment boundaries —
+    # caption segments are typically 1-5 tokens, so most natural multi-word
+    # finds (e.g. "Vault Dweller") will span at least one boundary.
     local edited_full
     edited_full=$(echo "$script_resp" | jq -c \
       --argjson ft "$find_tokens" \
       --argjson rt "$replace_tokens" \
       --argjson ic "$(jq -n --argjson v "$([[ "$ignore_case" == "true" ]] && echo true || echo false)" '$v')" '
-      def seq_replace($ft; $rt; $ic):
-        . as $els
-        | ($ft | length) as $n
-        | ($els | length) as $len
+      def flatten_caption_tokens:
+        [ range(0; (.tracks | length)) as $ti
+          | .tracks[$ti] as $t
+          | select($t.trackType == "CaptionTrack")
+          | range(0; ($t.sections | length)) as $si
+          | $t.sections[$si] as $sec
+          | range(0; ($sec.segments | length)) as $gi
+          | $sec.segments[$gi] as $seg
+          | range(0; ($seg.content.textElements | length)) as $ei
+          | { ti: $ti, si: $si, gi: $gi, ei: $ei,
+              text: $seg.content.textElements[$ei].text }
+        ];
+
+      def find_seq_starts($flat; $ft; $ic):
+        ($ft | length) as $n
+        | ($flat | length) as $len
         | (if $ic then ($ft | map(ascii_downcase)) else $ft end) as $needle
         | (if $len < $n then [] else
             [range(0; $len - $n + 1)
               | . as $i
-              | ([range(0; $n) as $j | $els[$i + $j].text]
+              | ([range(0; $n) as $j | $flat[$i + $j].text]
                  | if $ic then map(ascii_downcase) else . end) as $window
               | select($window == $needle)
               | $i]
           end) as $raw_starts
         | (reduce $raw_starts[] as $i ({last: 0, hits: []};
-            if $i >= .last then
-              .hits += [$i] | .last = $i + $n
-            else . end)).hits as $starts
-        | ($starts | length) as $matched
-        | (reduce $starts[] as $i ($els;
-            reduce range(0; $n) as $j (.; .[$i + $j].text = $rt[$j]))) as $new_els
-        | {elements: $new_els, matched: $matched};
+            if $i >= .last then .hits += [$i] | .last = $i + $n else . end)).hits;
 
-      .editingScript
-      | . as $script
-      | reduce range(0; (.tracks | length)) as $ti (
-          {script: $script, matched: 0};
-          if .script.tracks[$ti].trackType == "CaptionTrack" then
-            reduce range(0; (.script.tracks[$ti].sections | length)) as $si (.;
-              reduce range(0; (.script.tracks[$ti].sections[$si].segments | length)) as $gi (.;
-                (.script.tracks[$ti].sections[$si].segments[$gi].content.textElements
-                  | seq_replace($ft; $rt; $ic)) as $r
-                | .script.tracks[$ti].sections[$si].segments[$gi].content.textElements = $r.elements
-                | .matched = .matched + $r.matched
-              )
-            )
-          else . end
-        )
+      .editingScript as $script
+      | ($script | flatten_caption_tokens) as $flat
+      | find_seq_starts($flat; $ft; $ic) as $starts
+      | ($starts | length) as $matched
+      | (reduce $starts[] as $i ($script;
+          reduce range(0; ($ft | length)) as $j (.;
+            $flat[$i + $j] as $loc
+            | .tracks[$loc.ti].sections[$loc.si].segments[$loc.gi].content.textElements[$loc.ei].text = $rt[$j]
+          ))) as $new_script
+      | {script: $new_script, matched: $matched}
     ')
     edited=$(echo "$edited_full" | jq -c '.script')
     match_count=$(echo "$edited_full" | jq -r '.matched')
@@ -1043,9 +1049,14 @@ be 1:1. For a different-length rewrite use:
   body=$(jq -nc --argjson s "$edited" '{editingScript: $s}')
   local mode_label
   [[ "$n_find" -le 1 ]] && mode_label="single-token" || mode_label="multi-token"
+  # Only overlay metadata on success (`.jobId` present). Error bodies pass
+  # through unmodified so callers can distinguish actual failures.
   api_post "$API_BASE/exportable-clips/$project_id.$cid/re-render" "$body" \
-    | jq --arg find "$find_text" --arg repl "$replace_text" --argjson matched "$match_count" --arg mode "$mode_label" \
-        '. + {find: $find, replace: $repl, matchCount: $matched, mode: $mode}'
+    | jq --arg find "$find_text" --arg repl "$replace_text" --argjson matched "$match_count" --arg mode "$mode_label" '
+        if .jobId then
+          . + {find: $find, replace: $repl, matchCount: $matched, mode: $mode}
+        else . end
+      '
 }
 
 # Replace entire caption track from a transcript JSON file
@@ -1199,10 +1210,16 @@ cmd_edit_clip_trim() {
 
   local body
   body=$(jq -nc --argjson s "$edited" '{editingScript: $s}')
+  # Only overlay trim metadata on success responses (those have `.jobId`).
+  # Error bodies (e.g. 4xx/5xx JSON) pass through unmodified — overlaying
+  # startMs/endMs/durationMs onto a 413 made past failures look half-successful.
   api_post "$API_BASE/exportable-clips/$project_id.$cid/re-render" "$body" \
-    | jq --argjson s "$start_ms" --argjson e "$end_ms" --argjson req "$requested_end_ms" --arg note "$clamp_note" \
-        '. + {startMs: $s, endMs: $e, durationMs: ($e - $s)}
-          + (if $note != "" then {requestedEndMs: $req, clampedEndMs: $e, note: $note} else {} end)'
+    | jq --argjson s "$start_ms" --argjson e "$end_ms" --argjson req "$requested_end_ms" --arg note "$clamp_note" '
+        if .jobId then
+          . + {startMs: $s, endMs: $e, durationMs: ($e - $s)}
+            + (if $note != "" then {requestedEndMs: $req, clampedEndMs: $e, note: $note} else {} end)
+        else . end
+      '
 }
 
 # ── Preview ──────────────────────────────────────────────────────────────

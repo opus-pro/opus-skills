@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.2.5 — edit-clip eval follow-ups (BUG-4 + BUG-5)
+
+Two skill-side bugs surfaced by the v2.2.4 live eval (opus-skills-eval `evals/results/2026-05-15-v2.2.4-edit-pipeline.json`):
+
+- **`edit-clip trim` no longer overlays trim metadata onto error responses.** Past failures (e.g. an engine `413 request entity too large`) came back as `{statusCode: 413, message, startMs, endMs, durationMs}` — looked half-successful. The overlay is now gated on `.jobId`, so error bodies pass through unmodified.
+- **Multi-word `edit-clip caption-fix` now matches across caption segment boundaries.** v2.2.4's per-segment walk silently missed any find whose tokens spanned more than one segment, which is the common case (caption segments are typically 1-5 tokens, so `"Vault Dweller"` lands across seg9→seg10). v2.2.5 flattens every CaptionTrack's `textElements` into a single ordered list tagged with `(section, segment, element)` provenance, runs the sequence search on the flat list, and writes the 1:1 replacements back to their original positions. Same caveat as before: `--find` and `--replace` must have equal token counts; mismatches die with a pointer to `caption-replace` / `apply`. The `edit-clip caption-fix` success overlay is also `.jobId`-gated now (same fix as trim).
+
+Caption-fix overlay is also `.jobId`-gated (same fix as trim).
+
+Engine-side: the `413` itself (clip-api's 100KB Express default JSON limit on `POST /exportable-clips/:id/re-render`) is being tracked separately on clip-apps; the right fix there is a dedicated body-parser middleware scoped to the re-render route, matching the existing `AIContentBodyParserMiddleware` / `EditorHistoryContentBodyParserMiddleware` patterns.
+
 ## 2.2.4 — edit-clip / describe bugfixes from 2026-05-15 session
 
 Three bugs surfaced while exercising the edit pipeline end-to-end:
