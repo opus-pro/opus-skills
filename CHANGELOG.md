@@ -8,7 +8,7 @@ Reverts the 2.0.0 plugin-marketplace + MCP changes. Back to the pre-2.0.0 shape:
 - Drop the `plugins/opusclip/` wrapper — only existed to host MCP config at a plugin root.
 - Drop `docs/install/` — README install table + SKILL.md cover everything.
 - Restore `skills/opusclip/templates/preview.html`; `opusclip preview` is no longer shipped-broken.
-- `SKILL.md` is byte-identical to the 1.x eval-tuned baseline (19/19 from #12).
+- `SKILL.md` restored from the 1.x eval-tuned baseline (19/19 from #12), plus 13 lines of polish for cloud-sandbox hosts (Claude.ai / Cowork): split the API-key setup hint by host class, new "Running in a cloud sandbox" section flagging `preview` / `storyboard` / `upload --file` local-machine assumptions, and post-`submit` polling guidance so the model doesn't report "no clips" while a project is still processing.
 - `OPUSCLIP_API_KEY` access now also available on the Pro plan, not just Enterprise.
 
 ## 2.0.0 — Plugin marketplace + MCP server
