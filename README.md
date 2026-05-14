@@ -4,14 +4,23 @@ A skill marketplace for [OpusClip](https://opus.pro) — adds video clipping, so
 
 ## Install
 
-| Agent | Install |
+**Install this skill: <https://github.com/opus-pro/opus-skills>**
+
+Point your agent at the repo above and ask it to install the skill — most agents can fetch, zip, and wire it up from a URL. If yours needs a specific command, use the per-host shortcuts below.
+
+<details>
+<summary>Per-host install commands</summary>
+
+| Agent | Command |
 |---|---|
 | **Claude Code** | `/plugin marketplace add opus-pro/opus-skills` then `/plugin install opusclip@opus-skills` |
 | **Codex CLI / App** | `codex plugin marketplace add github:opus-pro/opus-skills`, then **Plugins** in TUI/App |
 | **OpenClaw** | `openclaw plugins install github:opus-pro/opus-skills/skills/opusclip` |
-| **Claude.ai** | `cd skills && zip -r opusclip-skill.zip opusclip` → upload at Settings → Customize → Skills (Pro+) |
+| **Claude.ai** | Download the repo, then `cd skills && zip -r opusclip-skill.zip opusclip` → upload at Settings → Customize → Skills (Pro+) |
 | **Claude Cowork** | Same zip upload as Claude.ai (propagates to Cowork) |
 | **Any host with `npx skills`** | `npx skills add opus-pro/opus-skills` |
+
+</details>
 
 Then export your key (from <https://clip.opus.pro/dashboard>, Enterprise or Pro plan required) in the shell that launches your agent:
 
