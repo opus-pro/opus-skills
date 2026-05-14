@@ -42,17 +42,17 @@ opusclip post <sub> [options]                 Social posting (publish, schedule,
 Alias: `create-project`
 
 ```bash
-opusclip submit --url "https://youtube.com/watch?v=..." [options]
+opusclip submit --url "https://youtube.com/watch?v=..." --durations "30,60,90" [more options]
 ```
 
 | Flag | Description |
 |------|-------------|
 | `--url` | (required) Video URL |
+| `--durations` | (required in practice) Target clip lengths in seconds, e.g. `"30,60,90"`. API rejects payloads without `curationPref.clipDurations`. |
 | `--model` | `ClipBasic` (talking-head) or `ClipAnything` (diverse) |
 | `--prompt` | Custom clipping prompt (ClipAnything only) |
 | `--keywords` | Comma-separated topic keywords (ClipBasic only) |
 | `--aspect` | `portrait` (default), `landscape`, `square` |
-| `--durations` | Target clip lengths in seconds, e.g. `"30,60"` |
 | `--range-start` / `--range-end` | Clip only a portion (seconds) |
 | `--template` | Brand template ID |
 | `--genre` | Video genre hint |
@@ -239,12 +239,14 @@ When the user doesn't specify a post title, use the clip's title from the `list 
 
 ### Clip a YouTube video
 ```bash
-opusclip submit --url "https://youtube.com/watch?v=VIDEO_ID"
+opusclip submit --url "https://youtube.com/watch?v=VIDEO_ID" --durations "30,60,90"
 # Wait for processing, then:
 opusclip list --project PROJECT_ID --summary
 # Preview clips in browser:
 opusclip preview --project PROJECT_ID
 ```
+
+`--durations` is required in practice — the API rejects payloads without `curationPref.clipDurations`. Pick the target clip lengths you want generated (each value becomes a `[0, N]` bucket).
 
 ### Use ClipAnything with a custom prompt
 ```bash
@@ -266,7 +268,7 @@ opusclip collections export --id COL_ID
 
 ### Clip, curate, and share
 ```bash
-opusclip submit --url "https://youtube.com/watch?v=..."
+opusclip submit --url "https://youtube.com/watch?v=..." --durations "30,60,90"
 opusclip list --project PROJECT_ID --summary
 
 # Understand clip content
@@ -283,7 +285,7 @@ opusclip share --project PROJECT_ID
 
 ```bash
 # 1. Submit and get clips
-opusclip submit --url "https://youtube.com/watch?v=..."
+opusclip submit --url "https://youtube.com/watch?v=..." --durations "30,60,90"
 opusclip list --project PROJECT_ID --summary
 
 # 2. See where you can post
