@@ -1,5 +1,24 @@
 # Changelog
 
+## 2.2.0 — Server-side editing-script round-trip (AGE-7)
+
+Wraps the new clip-api endpoints for caption editing and server-side trim. All four flows share one underlying primitive: fetch the clip's `EditingScript`, mutate it locally, POST it back to `/re-render`. Same shape the web editor uses on Save — no parallel schema, no per-op endpoint.
+
+### Added
+
+- `opusclip caption-fix --find X --replace Y` — find/replace caption text across every `TextElement` in the clip; re-renders. Add `--ignore-case` for case-insensitive matching.
+- `opusclip caption-replace --transcript file.json` — replace the whole caption track from a transcript file (`{segments: [{text, startMs, endMs, words?}]}`). Per-word timings produce karaoke-style highlighting; segment-only timings produce one TextElement per segment.
+- `opusclip trim-render --start S --end E` — server-side trim that re-renders with the new duration. Shrink-only in v1 (extending past source duration is unverified at the engine; a warning is printed if attempted). Accepts seconds (`--start`/`--end`) or milliseconds (`--start-ms`/`--end-ms`).
+- `opusclip editing-script` — fetch the clip's `EditingScript` JSON via `?include=editingScript` opt-in on the existing GET clip endpoint. Round-trip helper for power users / agents doing edits the wrapper verbs don't cover.
+- `opusclip re-render --script file.json` — submit a fully edited `EditingScript` directly.
+- `references/editing-script.md` — concrete recipes (typo fix, trim, full caption replace) showing the exact mutation paths.
+
+### Notes
+
+- All four new write commands are **charged** — they hit the clip-api `POST /re-render` endpoint, which triggers a fresh render via the engine pipeline. Beta caps apply (15h monthly cap, 4 concurrent projects, 10-credit per-project floor for Pro/Trial users).
+- Existing `opusclip trim` (local ffmpeg, free, instant) is unchanged. Both verbs coexist: `trim` for offline cuts of the preview mp4, `trim-render` for charged server-side trim with proper caption + brand-template handling.
+- Status: poll via existing `opusclip describe` — `renderAsVideoFile.pending` flips false when the new render is ready; `uriForExport` then points at the new mp4.
+
 ## 2.1.0 — Pure-skill repo
 
 Reverts the 2.0.0 plugin-marketplace + MCP changes. Back to the pre-2.0.0 shape: one skill at `skills/opusclip/` driving the OpusClip REST API via the bundled bash CLI.
