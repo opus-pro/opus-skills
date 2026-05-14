@@ -832,7 +832,8 @@ cmd_edit_clip_get() {
   [[ -n "$project_id" ]] || die "edit-clip get: --project is required"
   [[ -n "$clip_id" ]]    || die "edit-clip get: --clip is required"
 
-  local cid="$(clip_suffix "$clip_id" "$project_id")"
+  local cid
+  cid=$(clip_suffix "$clip_id" "$project_id")
   local body
   body=$(api_get "$API_BASE/exportable-clips/$project_id.$cid?include=editingScript")
   if [[ -n "$out_file" ]]; then
@@ -860,7 +861,8 @@ cmd_edit_clip_apply() {
   [[ -n "$script_file" ]]  || die "edit-clip apply: --script <file> is required"
   [[ -f "$script_file" ]]  || die "edit-clip apply: file '$script_file' not found"
 
-  local cid="$(clip_suffix "$clip_id" "$project_id")"
+  local cid
+  cid=$(clip_suffix "$clip_id" "$project_id")
   local body
   body=$(jq -nc --slurpfile s "$script_file" '{editingScript: $s[0]}')
   api_post "$API_BASE/exportable-clips/$project_id.$cid/re-render" "$body" | output
@@ -884,7 +886,8 @@ cmd_edit_clip_caption_fix() {
   [[ -n "$find_text" ]]    || die "edit-clip caption-fix: --find is required"
   [[ -n "$replace_text" ]] || die "edit-clip caption-fix: --replace is required"
 
-  local cid="$(clip_suffix "$clip_id" "$project_id")"
+  local cid
+  cid=$(clip_suffix "$clip_id" "$project_id")
   local script_resp
   script_resp=$(api_get "$API_BASE/exportable-clips/$project_id.$cid?include=editingScript")
 
@@ -943,7 +946,8 @@ cmd_edit_clip_caption_replace() {
   [[ -n "$transcript_file" ]]  || die "edit-clip caption-replace: --transcript <file> is required"
   [[ -f "$transcript_file" ]]  || die "edit-clip caption-replace: file '$transcript_file' not found"
 
-  local cid="$(clip_suffix "$clip_id" "$project_id")"
+  local cid
+  cid=$(clip_suffix "$clip_id" "$project_id")
   local script_resp
   script_resp=$(api_get "$API_BASE/exportable-clips/$project_id.$cid?include=editingScript")
 
@@ -1030,7 +1034,8 @@ cmd_edit_clip_trim() {
 
   # v1 ships shrink only. Extending past source duration is untested and may
   # silently no-op or error at the engine; print a warning if requested.
-  local cid="$(clip_suffix "$clip_id" "$project_id")"
+  local cid
+  cid=$(clip_suffix "$clip_id" "$project_id")
   local clip_meta
   clip_meta=$(api_get "$API_BASE/exportable-clips?q=findByProjectId&projectId=$project_id")
   local current_duration
