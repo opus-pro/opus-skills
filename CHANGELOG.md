@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.2.1 — v2.2.0 eval follow-ups
+
+Patches three doc gaps surfaced by the 2026-05-14 skill eval (28/28 pass — opus-skills-eval `evals/results/2026-05-14-v2.2.0.json`) and one shellcheck warning the same eval CI caught:
+
+- SKILL.md `describe` section now shows the polling `jq` one-liner inline, not just the field name.
+- SKILL.md `Common Workflows` gains an "Edit a clip, then post" recipe stitching `edit-clip * → describe poll → post publish` into one block.
+- `references/editing-script.md` adds a "Which sub-verb fits which input?" decision table so "re-render with new captions" maps to the right sub-verb.
+- Fix SC2155 in five `cmd_edit_clip_*` helpers — `local cid="$(clip_suffix ...)"` masked `clip_suffix`'s return value. Split into declare-then-assign so failures under `set -e` propagate.
+
+`plugin.json` also bumped from 2.1.0 → 2.2.1 (was missed in the 2.2.0 release).
+
 ## 2.2.0 — `edit-clip` umbrella (AGE-7)
 
 Wraps the new clip-api endpoints for server-side caption editing, trim, and any future edit op. All flows share one underlying primitive: fetch the clip's `EditingScript`, mutate it locally, POST it back to `/re-render`. Same shape the web editor uses on Save — no parallel schema, no per-op endpoint.

@@ -18,6 +18,18 @@ GET  /api/exportable-clips/:clipFullId
 
 The CLI's `opusclip edit-clip` umbrella wraps exactly this pattern. Five sub-verbs — `get`, `apply`, `caption-fix`, `caption-replace`, `trim` — all hit the same primitive. `apply --script <file>` is the escape hatch: any edit the web editor supports, an API consumer can do.
 
+## Which sub-verb fits which input?
+
+When the user wants to "re-render with new captions" or similar phrasing, pick by what they have in hand:
+
+| User has… | Use |
+|-----------|-----|
+| A transcript JSON (`{segments: [...]}`) | `edit-clip caption-replace --transcript file.json` |
+| An edited EditingScript JSON | `edit-clip apply --script file.json` |
+| A single find/replace string pair | `edit-clip caption-fix --find X --replace Y` |
+| A new in/out window in seconds | `edit-clip trim --start S --end E` |
+| None of the above — wants to inspect first | `edit-clip get --output script.json` |
+
 ## EditingScript shape (the parts you'll actually touch)
 
 ```jsonc

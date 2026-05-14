@@ -165,6 +165,16 @@ opusclip describe --layout --project PROJECT_ID --clip CLIP_ID
 
 Without `--transcript` or `--layout`, shows both. Use `--transcript` when you need to understand what was said. Use `--layout` to check current framing before suggesting layout changes.
 
+Polling a re-render (after any `edit-clip` sub-verb):
+
+```bash
+while :; do
+  opusclip describe --project P --clip C \
+    | jq -e '.renderAsVideoFile.pending == false' >/dev/null && break
+  sleep 10
+done
+```
+
 ### storyboard
 
 Generate a 2x2 frame grid image from a clip's preview video. Requires `ffmpeg`.
@@ -291,6 +301,23 @@ opusclip post schedule --project PROJECT_ID --clip CLIP_ID --account ACCOUNT_ID 
 
 # Cancel if needed
 opusclip post cancel --schedule SCHEDULE_ID
+```
+
+### Edit a clip, then post
+
+```bash
+# Server-side edit (censor / caption-fix / caption-replace / trim / apply)
+opusclip edit-clip censor --project PROJECT_ID --clip CLIP_ID --beep
+
+# Wait for the re-render
+while :; do
+  opusclip describe --project PROJECT_ID --clip CLIP_ID \
+    | jq -e '.renderAsVideoFile.pending == false' >/dev/null && break
+  sleep 10
+done
+
+# Post the edited clip
+opusclip post publish --project PROJECT_ID --clip CLIP_ID --account ACCOUNT_ID --title "..."
 ```
 
 ## Constraints
