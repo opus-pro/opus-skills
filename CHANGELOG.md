@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.1.0 — Pure-skill repo
+
+Reverts the 2.0.0 plugin-marketplace + MCP changes. Back to the pre-2.0.0 shape: one skill at `skills/opusclip/` driving the OpusClip REST API via the bundled bash CLI.
+
+- Drop the bundled stdio MCP server (`.mcp.json`, `mcp-server.mjs`, `mcp-server/` source) — duplicated what the bash CLI already does on the same hosts.
+- Drop the `plugins/opusclip/` wrapper — only existed to host MCP config at a plugin root.
+- Drop `docs/install/` — README install table + SKILL.md cover everything.
+- Restore `skills/opusclip/templates/preview.html`; `opusclip preview` is no longer shipped-broken.
+- `SKILL.md` is byte-identical to the 1.x eval-tuned baseline (19/19 from #12).
+- `OPUSCLIP_API_KEY` access now also available on the Pro plan, not just Enterprise.
+
 ## 2.0.0 — Plugin marketplace + MCP server
 
 **Breaking — repo layout changed.** Re-install with `/plugin update opusclip@opus-skills` (Claude Code) or `codex plugin marketplace upgrade` (Codex). Skill-only `npx skills update` installs also need to be refreshed.

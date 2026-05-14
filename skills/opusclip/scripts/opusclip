@@ -7,7 +7,7 @@ set -euo pipefail
 # Requires: curl, jq
 # Auth: Set OPUSCLIP_API_KEY environment variable
 
-VERSION="2.0.0"
+VERSION="2.1.0"
 API_BASE="${OPUSCLIP_API_URL:-https://api.opus.pro/api}"
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -31,7 +31,7 @@ need curl
 need jq
 
 api_key() {
-  [[ -n "${OPUSCLIP_API_KEY:-}" ]] || die "OPUSCLIP_API_KEY is not set. API access requires an Enterprise plan: https://www.opus.pro/pricing?utm_source=cli&utm_medium=opus"
+  [[ -n "${OPUSCLIP_API_KEY:-}" ]] || die "OPUSCLIP_API_KEY is not set. API access requires an Enterprise or Pro plan: https://www.opus.pro/pricing?utm_source=cli&utm_medium=opus"
   echo "$OPUSCLIP_API_KEY"
 }
 

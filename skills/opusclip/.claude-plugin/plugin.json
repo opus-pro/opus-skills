@@ -1,0 +1,13 @@
+{
+  "name": "opusclip",
+  "version": "2.1.0",
+  "description": "Turn long-form videos into short clips and post them to social platforms via the OpusClip API. Ships a skill that drives the OpusClip REST API via a bundled bash CLI.",
+  "author": {
+    "name": "OpusClip",
+    "url": "https://opus.pro"
+  },
+  "homepage": "https://opus.pro",
+  "repository": "https://github.com/opus-pro/opus-skills",
+  "license": "MIT",
+  "keywords": ["video", "clips", "social-media", "opusclip"]
+}
