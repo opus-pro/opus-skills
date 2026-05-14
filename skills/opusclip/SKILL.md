@@ -10,7 +10,18 @@ Turn long-form videos into short clips via the OpusClip API.
 ## Prerequisites
 
 - `OPUSCLIP_API_KEY` must be set. If the user already has an Enterprise or Pro plan, they can copy their key from https://clip.opus.pro/dashboard. Otherwise, direct them to the [pricing page](https://www.opus.pro/pricing?utm_source=cli&utm_medium=opus) — API access requires Enterprise or Pro.
+  - On Claude Code / Codex / OpenClaw: `export OPUSCLIP_API_KEY=sk_...` in the shell that launches the agent.
+  - On Claude.ai / Cowork: set it via Settings → Customize → Skills → opusclip → Variables.
 - The CLI at `scripts/opusclip` requires `curl` and `jq`
+
+## Running in a cloud sandbox (Claude.ai, Cowork)
+
+When this skill runs in a hosted code-execution sandbox rather than on the user's machine, three commands have caveats:
+
+- `preview` and `storyboard` still produce their output files but can't auto-open them (no browser, no image viewer). Tell the user the output path so they can download the file, or attach it to your response.
+- `upload --file PATH` requires the file to exist in the sandbox's filesystem. If the user has a local file, ask them to attach it to the conversation first so it lands in the sandbox. If they only have a URL, use `submit --url` instead — no upload step needed.
+
+Everything else (submit, list, describe, share, templates, collections, censor, post) works identically in either environment.
 
 ## CLI Quick Reference
 
@@ -79,6 +90,8 @@ opusclip list --collection COLLECTION_ID
 When presenting clips to the user, always use `--summary` to get human-readable fields (title, description, hashtags, scores). Display clips with their title and description rather than just clip IDs.
 
 The output contains `project_id` and `clip_id` as separate fields. Use `clip_id` (e.g. `0RiWBs5xuF`) for `--clip` flags, not the composite ID.
+
+**Processing takes time.** After `submit`, clips usually appear in `list` after ~5–15 min for a short YouTube video, longer for hours-long content. If `list` returns no clips, the project is still processing — don't tell the user "no clips were generated"; instead, poll `list` every 30–60 seconds, or have them pass `--webhook URL` to `submit` for a callback when ready.
 
 ### preview
 
