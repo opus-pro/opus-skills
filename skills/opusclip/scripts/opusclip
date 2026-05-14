@@ -7,7 +7,7 @@ set -euo pipefail
 # Requires: curl, jq
 # Auth: Set OPUSCLIP_API_KEY environment variable
 
-VERSION="2.1.0"
+VERSION="2.2.0"
 API_BASE="${OPUSCLIP_API_URL:-https://api.opus.pro/api}"
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -435,47 +435,6 @@ cmd_collections() {
 
 # ── Censor ───────────────────────────────────────────────────────────────────
 
-cmd_censor() {
-  local subcmd="${1:-}"; shift 2>/dev/null || true
-
-  case "$subcmd" in
-    create)
-      local project_id="" clip_id="" beep="false"
-      while [[ $# -gt 0 ]]; do
-        case "$1" in
-          --project) project_id="$2"; shift 2 ;;
-          --clip)    clip_id="$2"; shift 2 ;;
-          --beep)    beep="true"; shift ;;
-          *) die "censor create: unknown flag '$1'" ;;
-        esac
-      done
-      [[ -n "$project_id" ]] || die "censor create: --project is required"
-      [[ -n "$clip_id" ]]    || die "censor create: --clip is required"
-      clip_id=$(clip_suffix "$clip_id" "$project_id")
-      local payload
-      payload=$(jq -n --arg pid "$project_id" --arg cid "$clip_id" --argjson beep "$beep" \
-        '{projectId: $pid, clipId: $cid, options: {beepSound: $beep}}')
-      api_post "$API_BASE/censor-jobs" "$payload" | output
-      ;;
-
-    status)
-      local job_id=""
-      while [[ $# -gt 0 ]]; do
-        case "$1" in
-          --job) job_id="$2"; shift 2 ;;
-          *) die "censor status: unknown flag '$1'" ;;
-        esac
-      done
-      [[ -n "$job_id" ]] || die "censor status: --job is required"
-      api_get "$API_BASE/censor-jobs/$job_id" | output
-      ;;
-
-    *)
-      die "censor: unknown subcommand '$subcmd' (use create|status)"
-      ;;
-  esac
-}
-
 # ── Post (Social Posting) ─────────────────────────────────────────────────
 
 cmd_post() {
@@ -827,6 +786,283 @@ cmd_trim() {
   echo "{\"output\": \"$out_file\", \"start\": $start_sec, \"end\": $end_sec}"
 }
 
+# ── Edit Clip (server-side re-render) ────────────────────────────────────
+#
+# One umbrella verb wraps every server-side edit a clip can take. Sub-verbs:
+#
+#   opusclip edit-clip get             fetch the clip's EditingScript JSON
+#   opusclip edit-clip apply           submit a fully-edited script back
+#   opusclip edit-clip caption-fix     find/replace caption text
+#   opusclip edit-clip caption-replace replace whole caption track from transcript
+#   opusclip edit-clip trim            server-side trim (shrink only)
+#
+# All sub-verbs share the same underlying endpoints:
+#   GET  /api/exportable-clips/:clipFullId?include=editingScript
+#   POST /api/exportable-clips/:clipFullId/re-render
+# The wrapper does the EditingScript walking; the API stays a generic
+# passthrough. Future edit ops the web editor adds are reachable through
+# `edit-clip apply --script` without any new wrapper.
+
+cmd_edit_clip() {
+  local subcmd="${1:-}"; shift 2>/dev/null || true
+  case "$subcmd" in
+    get)             cmd_edit_clip_get "$@" ;;
+    apply)           cmd_edit_clip_apply "$@" ;;
+    caption-fix)     cmd_edit_clip_caption_fix "$@" ;;
+    caption-replace) cmd_edit_clip_caption_replace "$@" ;;
+    censor)          cmd_edit_clip_censor "$@" ;;
+    trim)            cmd_edit_clip_trim "$@" ;;
+    *)
+      die "edit-clip: unknown subcommand '$subcmd' (use get|apply|caption-fix|caption-replace|censor|trim)"
+      ;;
+  esac
+}
+
+# Fetch the EditingScript JSON for a clip
+cmd_edit_clip_get() {
+  local project_id="" clip_id="" out_file=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --project) project_id="$2"; shift 2 ;;
+      --clip)    clip_id="$2"; shift 2 ;;
+      --output)  out_file="$2"; shift 2 ;;
+      *) die "edit-clip get: unknown flag '$1'" ;;
+    esac
+  done
+  [[ -n "$project_id" ]] || die "edit-clip get: --project is required"
+  [[ -n "$clip_id" ]]    || die "edit-clip get: --clip is required"
+
+  local cid="$(clip_suffix "$clip_id" "$project_id")"
+  local body
+  body=$(api_get "$API_BASE/exportable-clips/$project_id.$cid?include=editingScript")
+  if [[ -n "$out_file" ]]; then
+    echo "$body" | jq '.editingScript' > "$out_file"
+    echo "Saved EditingScript to: $out_file" >&2
+    echo "{\"output\": \"$out_file\"}"
+  else
+    echo "$body" | jq '.editingScript'
+  fi
+}
+
+# Submit a fully-edited EditingScript back for re-render
+cmd_edit_clip_apply() {
+  local project_id="" clip_id="" script_file=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --project) project_id="$2"; shift 2 ;;
+      --clip)    clip_id="$2"; shift 2 ;;
+      --script)  script_file="$2"; shift 2 ;;
+      *) die "edit-clip apply: unknown flag '$1'" ;;
+    esac
+  done
+  [[ -n "$project_id" ]]   || die "edit-clip apply: --project is required"
+  [[ -n "$clip_id" ]]      || die "edit-clip apply: --clip is required"
+  [[ -n "$script_file" ]]  || die "edit-clip apply: --script <file> is required"
+  [[ -f "$script_file" ]]  || die "edit-clip apply: file '$script_file' not found"
+
+  local cid="$(clip_suffix "$clip_id" "$project_id")"
+  local body
+  body=$(jq -nc --slurpfile s "$script_file" '{editingScript: $s[0]}')
+  api_post "$API_BASE/exportable-clips/$project_id.$cid/re-render" "$body" | output
+}
+
+# Fix typos / phrasing: find/replace text across every caption TextElement
+cmd_edit_clip_caption_fix() {
+  local project_id="" clip_id="" find_text="" replace_text="" ignore_case="false"
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --project)     project_id="$2"; shift 2 ;;
+      --clip)        clip_id="$2"; shift 2 ;;
+      --find)        find_text="$2"; shift 2 ;;
+      --replace)     replace_text="$2"; shift 2 ;;
+      --ignore-case) ignore_case="true"; shift ;;
+      *) die "edit-clip caption-fix: unknown flag '$1'" ;;
+    esac
+  done
+  [[ -n "$project_id" ]]   || die "edit-clip caption-fix: --project is required"
+  [[ -n "$clip_id" ]]      || die "edit-clip caption-fix: --clip is required"
+  [[ -n "$find_text" ]]    || die "edit-clip caption-fix: --find is required"
+  [[ -n "$replace_text" ]] || die "edit-clip caption-fix: --replace is required"
+
+  local cid="$(clip_suffix "$clip_id" "$project_id")"
+  local script_resp
+  script_resp=$(api_get "$API_BASE/exportable-clips/$project_id.$cid?include=editingScript")
+
+  local jq_flags='""'
+  [[ "$ignore_case" == "true" ]] && jq_flags='"i"'
+
+  # Count matches BEFORE replacement so we can short-circuit on zero (and avoid
+  # spending render credits on a no-op POST).
+  local match_count
+  match_count=$(echo "$script_resp" | jq --arg find "$find_text" --argjson flags "$jq_flags" '
+    [.editingScript.tracks[]? | select(.trackType=="CaptionTrack")
+      | .sections[]?.segments[]?.content.textElements[]?.text
+      | select(test($find; $flags))] | length
+  ')
+
+  if [[ "$match_count" == "0" ]]; then
+    jq -nc --arg find "$find_text" --arg repl "$replace_text" \
+      '{message: "no caption text matched; nothing to re-render", find: $find, replace: $repl, matchCount: 0}'
+    return 0
+  fi
+
+  local edited
+  edited=$(echo "$script_resp" | jq -c --arg find "$find_text" --arg repl "$replace_text" --argjson flags "$jq_flags" '
+    .editingScript
+    | (.tracks |= map(
+        if .trackType == "CaptionTrack" then
+          .sections |= map(.segments |= map(
+            .content.textElements |= map(.text |= gsub($find; $repl; $flags))
+          ))
+        else . end
+      ))
+  ')
+
+  local body
+  body=$(jq -nc --argjson s "$edited" '{editingScript: $s}')
+  api_post "$API_BASE/exportable-clips/$project_id.$cid/re-render" "$body" \
+    | jq --arg find "$find_text" --arg repl "$replace_text" --argjson matched "$match_count" \
+        '. + {find: $find, replace: $repl, matchCount: $matched}'
+}
+
+# Replace entire caption track from a transcript JSON file
+# File shape: { "segments": [{ "text": "...", "startMs": 0, "endMs": 1500,
+#                              "words"?: [{ "word": "...", "startMs": 0, "endMs": 500 }] }] }
+cmd_edit_clip_caption_replace() {
+  local project_id="" clip_id="" transcript_file=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --project)    project_id="$2"; shift 2 ;;
+      --clip)       clip_id="$2"; shift 2 ;;
+      --transcript) transcript_file="$2"; shift 2 ;;
+      *) die "edit-clip caption-replace: unknown flag '$1'" ;;
+    esac
+  done
+  [[ -n "$project_id" ]]       || die "edit-clip caption-replace: --project is required"
+  [[ -n "$clip_id" ]]          || die "edit-clip caption-replace: --clip is required"
+  [[ -n "$transcript_file" ]]  || die "edit-clip caption-replace: --transcript <file> is required"
+  [[ -f "$transcript_file" ]]  || die "edit-clip caption-replace: file '$transcript_file' not found"
+
+  local cid="$(clip_suffix "$clip_id" "$project_id")"
+  local script_resp
+  script_resp=$(api_get "$API_BASE/exportable-clips/$project_id.$cid?include=editingScript")
+
+  # Build TextElement[] for the first CaptionTrack section.
+  # Each transcript segment → one TextElement per word (or one if words missing).
+  local edited
+  edited=$(jq -nc \
+    --argjson script "$script_resp" \
+    --slurpfile tr "$transcript_file" '
+      ($tr[0] // {}) as $t
+      | ($t.segments // []) as $segs
+      | $script.editingScript
+      | .tracks |= map(
+          if .trackType == "CaptionTrack" then
+            .sections[0].segments[0].content.textElements = (
+              $segs | to_entries | map(
+                .key as $i | .value as $seg
+                | (($seg.words // [{word: $seg.text, startMs: $seg.startMs, endMs: $seg.endMs}])
+                   | to_entries | map(
+                    .key as $j | .value as $w
+                    | {
+                        id: "caption-fix-\($i)-\($j)",
+                        text: $w.word,
+                        color: 0,
+                        duration: { type: "TS", sO: 0, eO: (($w.endMs // 0) - ($w.startMs // 0)) },
+                        timeline: { in: (($w.startMs // 0) - ($seg.startMs // 0)),
+                                    out: (($w.endMs // 0) - ($seg.startMs // 0)) }
+                      }
+                  ))
+              ) | add // []
+            )
+          else . end
+        )
+    ')
+
+  local body
+  body=$(jq -nc --argjson s "$edited" '{editingScript: $s}')
+  api_post "$API_BASE/exportable-clips/$project_id.$cid/re-render" "$body" | output
+}
+
+# Profanity censor: server-side dictionary-based caption mutation + beep audio.
+# Hits the existing /api/censor-jobs endpoint (predates the unified /re-render
+# primitive). Under the hood it does the same engine save-and-render call;
+# the CLI just routes to a different controller. Poll status via
+# `opusclip describe --project P --clip C` (renderAsVideoFile.pending).
+cmd_edit_clip_censor() {
+  local project_id="" clip_id="" beep="false"
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --project) project_id="$2"; shift 2 ;;
+      --clip)    clip_id="$2"; shift 2 ;;
+      --beep)    beep="true"; shift ;;
+      *) die "edit-clip censor: unknown flag '$1'" ;;
+    esac
+  done
+  [[ -n "$project_id" ]] || die "edit-clip censor: --project is required"
+  [[ -n "$clip_id" ]]    || die "edit-clip censor: --clip is required"
+  clip_id=$(clip_suffix "$clip_id" "$project_id")
+  local payload
+  payload=$(jq -n --arg pid "$project_id" --arg cid "$clip_id" --argjson beep "$beep" \
+    '{projectId: $pid, clipId: $cid, options: {beepSound: $beep}}')
+  api_post "$API_BASE/censor-jobs" "$payload" | output
+}
+
+# Server-side trim: shrink the clip via re-render (charged; opposite of local `trim`)
+cmd_edit_clip_trim() {
+  local project_id="" clip_id="" start_ms="" end_ms=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --project)  project_id="$2"; shift 2 ;;
+      --clip)     clip_id="$2"; shift 2 ;;
+      --start-ms) start_ms="$2"; shift 2 ;;
+      --end-ms)   end_ms="$2"; shift 2 ;;
+      --start)    start_ms="$(awk -v v="$2" 'BEGIN{printf "%d", v*1000}')"; shift 2 ;;
+      --end)      end_ms="$(awk -v v="$2" 'BEGIN{printf "%d", v*1000}')"; shift 2 ;;
+      *) die "edit-clip trim: unknown flag '$1'" ;;
+    esac
+  done
+  [[ -n "$project_id" ]] || die "edit-clip trim: --project is required"
+  [[ -n "$clip_id" ]]    || die "edit-clip trim: --clip is required"
+  [[ -n "$start_ms" ]]   || die "edit-clip trim: --start (seconds) or --start-ms is required"
+  [[ -n "$end_ms" ]]     || die "edit-clip trim: --end (seconds) or --end-ms is required"
+  [[ "$end_ms" -gt "$start_ms" ]] || die "edit-clip trim: --end must be greater than --start"
+
+  # v1 ships shrink only. Extending past source duration is untested and may
+  # silently no-op or error at the engine; print a warning if requested.
+  local cid="$(clip_suffix "$clip_id" "$project_id")"
+  local clip_meta
+  clip_meta=$(api_get "$API_BASE/exportable-clips?q=findByProjectId&projectId=$project_id")
+  local current_duration
+  current_duration=$(echo "$clip_meta" | jq -r --arg cid "$cid" '
+    .data[] | select(.curationId == $cid or .id == $cid) | .durationMs' | head -1)
+  if [[ -n "$current_duration" && "$end_ms" -gt "$current_duration" ]]; then
+    echo "warning: --end ($end_ms ms) > current clip duration ($current_duration ms). Extend is unverified at the engine; behaviour may be a no-op or error." >&2
+  fi
+
+  local script_resp
+  script_resp=$(api_get "$API_BASE/exportable-clips/$project_id.$cid?include=editingScript")
+
+  # For every timed track section, set sectionTimeline + sectionDuration to the new window.
+  local edited
+  edited=$(echo "$script_resp" | jq -c --argjson s "$start_ms" --argjson e "$end_ms" '
+    .editingScript
+    | .tracks |= map(
+        if ((.sections // []) | length) > 0 and (.sections[0].sectionTimeline // null) != null then
+          .sections[0].sectionTimeline.in  = $s
+          | .sections[0].sectionTimeline.out = $e
+          | .sections[0].sectionDuration.sO = $s
+          | .sections[0].sectionDuration.eO = $e
+        else . end
+      )
+  ')
+
+  local body
+  body=$(jq -nc --argjson s "$edited" '{editingScript: $s}')
+  api_post "$API_BASE/exportable-clips/$project_id.$cid/re-render" "$body" \
+    | jq --argjson s "$start_ms" --argjson e "$end_ms" '. + {startMs: $s, endMs: $e, durationMs: ($e - $s)}'
+}
+
 # ── Preview ──────────────────────────────────────────────────────────────
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -949,13 +1185,14 @@ COMMANDS
   list              List clips for a project or collection (alias: get-clips)
   describe          Get clip details — transcript, layout info
   storyboard        Generate 2x2 frame grid image (requires ffmpeg)
-  trim              Trim a clip locally (requires ffmpeg)
+  trim              Trim a clip locally (requires ffmpeg, no API call)
+  edit-clip         Server-side clip edits via re-render (charged):
+                    get | apply | caption-fix | caption-replace | censor | trim
   preview           Generate HTML preview page and open in browser
   share             Update project visibility (alias: share-project)
   templates         List available brand templates
   upload            Upload a local video file and create a clip project
   collections       Manage collections (list|create|delete|export|add-clip|remove-clip)
-  censor            Manage censor jobs (create|status)
   post              Social posting (accounts|generate-copy|copy-status|publish|schedule|cancel)
   help              Show this help message
 
@@ -982,8 +1219,26 @@ EXAMPLES
   # Generate storyboard image from a clip
   opusclip storyboard --project PROJECT_ID --clip CLIP_ID
 
-  # Trim a clip locally
+  # Trim a clip locally (ffmpeg, no API call)
   opusclip trim --project PROJECT_ID --clip CLIP_ID --start 5 --end 25
+
+  # Server-side edits (charged: re-render via API; see references/editing-script.md)
+  #
+  # Fix a typo in the captions:
+  opusclip edit-clip caption-fix --project PROJECT_ID --clip CLIP_ID \\
+    --find "prooduct" --replace "product"
+  #
+  # Replace the whole caption track from a transcript file:
+  opusclip edit-clip caption-replace --project PROJECT_ID --clip CLIP_ID \\
+    --transcript captions.json
+  #
+  # Trim and re-render (shrink only; extend is unverified at the engine):
+  opusclip edit-clip trim --project PROJECT_ID --clip CLIP_ID --start 0 --end 15
+  #
+  # Power-user round-trip — fetch, edit locally, send back:
+  opusclip edit-clip get --project PROJECT_ID --clip CLIP_ID --output script.json
+  # ...edit script.json...
+  opusclip edit-clip apply --project PROJECT_ID --clip CLIP_ID --script script.json
 
   # Upload a local video and clip it
   opusclip upload --file video.mp4 --title "My Video" --durations "30,60"
@@ -999,9 +1254,9 @@ EXAMPLES
   opusclip collections add-clip --id COLLECTION_ID --content-id PROJECT_ID.CLIP_ID
   opusclip collections export --id COLLECTION_ID
 
-  # Censor profanity in a clip
-  opusclip censor create --project PROJECT_ID --clip CLIP_ID --beep
-  opusclip censor status --job JOB_ID
+  # Censor profanity in a clip — dictionary-based; --beep adds a sound effect
+  opusclip edit-clip censor --project PROJECT_ID --clip CLIP_ID --beep
+  # status via 'opusclip describe' (renderAsVideoFile.pending flips false when ready)
 
   # Social posting — list accounts, publish, schedule
   opusclip post accounts
@@ -1041,6 +1296,9 @@ main() {
     storyboard)     cmd_storyboard "$@" ;;
     trim)           cmd_trim "$@" ;;
 
+    # Server-side editing (re-renders the clip; charged)
+    edit-clip)      cmd_edit_clip "$@" ;;
+
     # Aliases (backwards compat)
     create-project) cmd_create_project "$@" ;;
     get-clips)      cmd_get_clips "$@" ;;
@@ -1050,7 +1308,6 @@ main() {
     templates)      cmd_templates "$@" ;;
     upload)         cmd_upload "$@" ;;
     collections)    cmd_collections "$@" ;;
-    censor)         cmd_censor "$@" ;;
     post)           cmd_post "$@" ;;
     help|--help|-h) usage ;;
     version|--version|-v) echo "opusclip $VERSION" ;;

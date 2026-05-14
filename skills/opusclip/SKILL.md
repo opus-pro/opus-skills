@@ -21,13 +21,19 @@ opusclip submit --url URL [options]           Submit video for clipping (alias: 
 opusclip list --project ID [--summary]        List clips (alias: get-clips)
 opusclip describe --project ID --clip CID     Get clip details (transcript, layout info)
 opusclip storyboard --project ID --clip CID   Generate 2x2 frame preview (requires ffmpeg)
-opusclip trim --project ID --clip CID --start S --end E  Local trim (requires ffmpeg)
+opusclip trim --project ID --clip CID --start S --end E    Local ffmpeg trim (no API call, no captions)
+opusclip edit-clip <sub> [flags]              Server-side clip edits (charged, re-renders the clip)
+  get             Fetch EditingScript JSON for round-trip edits
+  apply           Submit an edited EditingScript directly
+  caption-fix     Replace caption text (--find X --replace Y)
+  caption-replace Replace caption track from a transcript file (--transcript FILE)
+  censor          Profanity censor (dictionary-based; --beep adds sound effect)
+  trim            Server-side trim (--start S --end E; shrink only)
 opusclip preview --project ID [--output PATH] Generate HTML preview and open in browser
 opusclip share --project ID                   Share project (alias: share-project)
 opusclip templates                            List brand templates
 opusclip upload --file PATH [options]         Upload local video + create project
 opusclip collections <sub> [options]          Manage collections
-opusclip censor <sub> [options]               Censor profanity in clips
 opusclip post <sub> [options]                 Social posting (publish, schedule, generate copy)
 ```
 
@@ -123,14 +129,22 @@ opusclip collections remove-clip --id COL_ID --content-id PROJECT_ID.CLIP_ID
 
 Collections can be exported (download links) but cannot be shared publicly. To share clips publicly, use `share --project` on the project instead.
 
-### censor
+### edit-clip
+
+Server-side edits to an existing clip. All sub-verbs except `get` re-render the clip (charged, beta caps apply). The CLI does the EditingScript walking client-side; the API is a generic passthrough that mirrors the web editor's Save action. See `references/editing-script.md` for the mutation paths and recipes.
 
 ```bash
-opusclip censor create --project PID --clip CID [--beep]
-opusclip censor status --job JOB_ID
+opusclip edit-clip get             --project PID --clip CID [--output FILE]
+opusclip edit-clip apply           --project PID --clip CID --script FILE
+opusclip edit-clip caption-fix     --project PID --clip CID --find X --replace Y [--ignore-case]
+opusclip edit-clip caption-replace --project PID --clip CID --transcript FILE
+opusclip edit-clip censor          --project PID --clip CID [--beep]
+opusclip edit-clip trim            --project PID --clip CID --start S --end E
 ```
 
-Statuses: `QUEUED` → `PROCESSING` → `CONCLUDED` / `FAILED`
+All sub-verbs return `{jobId}` (or `{message, matchCount: 0}` when nothing matched). Poll status via `opusclip describe --project PID --clip CID` — `renderAsVideoFile.pending` flips false when the new render is ready and `uriForExport` then points at the new mp4.
+
+`opusclip edit-clip trim` is the server-side, captioned, brand-styled version. The top-level `opusclip trim` is the local-ffmpeg fast path on the preview mp4 (free, instant, no captions). Use whichever fits the situation.
 
 ### describe
 

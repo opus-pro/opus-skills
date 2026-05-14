@@ -1,5 +1,29 @@
 # Changelog
 
+## 2.2.0 — `edit-clip` umbrella (AGE-7)
+
+Wraps the new clip-api endpoints for server-side caption editing, trim, and any future edit op. All flows share one underlying primitive: fetch the clip's `EditingScript`, mutate it locally, POST it back to `/re-render`. Same shape the web editor uses on Save — no parallel schema, no per-op endpoint.
+
+### Added
+
+- `opusclip edit-clip get` — fetch the clip's `EditingScript` JSON via `?include=editingScript` opt-in on the existing GET clip endpoint. Round-trip helper.
+- `opusclip edit-clip apply --script file.json` — submit a fully edited `EditingScript` directly. Escape hatch for any edit the web editor supports.
+- `opusclip edit-clip caption-fix --find X --replace Y` — find/replace caption text across every `TextElement`; re-renders. `--ignore-case` for case-insensitive matching. Short-circuits with `matchCount: 0` if nothing matches (no credit spend).
+- `opusclip edit-clip caption-replace --transcript file.json` — replace the whole caption track from a transcript file (`{segments: [{text, startMs, endMs, words?}]}`). Per-word timings produce karaoke-style highlighting.
+- `opusclip edit-clip trim --start S --end E` — server-side trim with re-render. Shrink only in v1; extending past source duration is unverified at the engine and warns. Accepts seconds (`--start`/`--end`) or milliseconds (`--start-ms`/`--end-ms`).
+- `references/editing-script.md` — concrete recipes (typo fix, trim, full caption replace) showing the exact mutation paths.
+
+### Changed (breaking)
+
+- **`opusclip censor` moved to `opusclip edit-clip censor`.** Profanity censoring is conceptually a server-side clip edit, same as the new caption-fix / trim flows — they all mutate the editingScript and trigger a re-render. Folded under the `edit-clip` umbrella for consistency.
+- **`opusclip censor status` removed.** Use `opusclip describe --project PID --clip CID` and watch `renderAsVideoFile.pending`. The CLI no longer surfaces the censor-job-specific QUEUED/PROCESSING enum, but the underlying `/api/censor-jobs/:jobId` API is unchanged at the HTTP layer.
+
+### Notes
+
+- All five edit sub-verbs hit `POST /re-render` (except `get`, which is a read, and `censor`, which still posts to the existing `/api/censor-jobs` controller — same engine pipeline under the hood). Beta caps apply (15h monthly cap, 4 concurrent projects, 10-credit per-project floor for Pro/Trial users).
+- Existing `opusclip trim` (local ffmpeg, free, instant) is unchanged. Both verbs coexist: top-level `trim` for offline cuts of the preview mp4, `edit-clip trim` for charged server-side trim with proper caption + brand-template handling.
+- Status: poll via existing `opusclip describe` — `renderAsVideoFile.pending` flips false when the new render is ready; `uriForExport` then points at the new mp4.
+
 ## 2.1.0 — Pure-skill repo
 
 Reverts the 2.0.0 plugin-marketplace + MCP changes. Back to the pre-2.0.0 shape: one skill at `skills/opusclip/` driving the OpusClip REST API via the bundled bash CLI.
