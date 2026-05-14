@@ -951,34 +951,41 @@ cmd_edit_clip_caption_replace() {
   local script_resp
   script_resp=$(api_get "$API_BASE/exportable-clips/$project_id.$cid?include=editingScript")
 
-  # Build TextElement[] for the first CaptionTrack section.
-  # Each transcript segment → one TextElement per word (or one if words missing).
+  # Wholesale-replace the CaptionTrack: collapse to one section + one segment
+  # carrying every word from the transcript. Preserve the existing section
+  # timing so the clip duration doesn't change. Drop the other (now-orphan)
+  # sections — otherwise leftover textElements from those sections appear
+  # alongside the new transcript in the rendered output.
   local edited
   edited=$(jq -nc \
     --argjson script "$script_resp" \
     --slurpfile tr "$transcript_file" '
       ($tr[0] // {}) as $t
       | ($t.segments // []) as $segs
+      | ($segs | to_entries | map(
+          .key as $i | .value as $seg
+          | (($seg.words // [{word: $seg.text, startMs: $seg.startMs, endMs: $seg.endMs}])
+             | to_entries | map(
+              .key as $j | .value as $w
+              | {
+                  id: "caption-replace-\($i)-\($j)",
+                  text: $w.word,
+                  color: 0,
+                  duration: { type: "TS", sO: 0, eO: (($w.endMs // 0) - ($w.startMs // 0)) },
+                  timeline: { in: ($w.startMs // 0), out: ($w.endMs // 0) }
+                }
+            ))
+        ) | add // []) as $newElements
       | $script.editingScript
       | .tracks |= map(
           if .trackType == "CaptionTrack" then
-            .sections[0].segments[0].content.textElements = (
-              $segs | to_entries | map(
-                .key as $i | .value as $seg
-                | (($seg.words // [{word: $seg.text, startMs: $seg.startMs, endMs: $seg.endMs}])
-                   | to_entries | map(
-                    .key as $j | .value as $w
-                    | {
-                        id: "caption-fix-\($i)-\($j)",
-                        text: $w.word,
-                        color: 0,
-                        duration: { type: "TS", sO: 0, eO: (($w.endMs // 0) - ($w.startMs // 0)) },
-                        timeline: { in: (($w.startMs // 0) - ($seg.startMs // 0)),
-                                    out: (($w.endMs // 0) - ($seg.startMs // 0)) }
-                      }
-                  ))
-              ) | add // []
-            )
+            .sections = [
+              (.sections[0] // {sectionTimeline: {in: 0, out: 0}, sectionDuration: {type: "TS", sO: 0, eO: 0}})
+              | .segments = [{
+                  id: ((.segments[0].id) // "caption-replace-segment"),
+                  content: { textElements: $newElements }
+                }]
+            ]
           else . end
         )
     ')
