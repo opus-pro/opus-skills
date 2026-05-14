@@ -907,9 +907,24 @@ cmd_caption_fix() {
   local script_resp
   script_resp=$(api_get "$API_BASE/exportable-clips/$project_id.$cid?include=editingScript")
 
-  # Walk every TextElement and swap matches. Use jq's gsub with optional 'i' flag.
   local jq_flags='""'
   [[ "$ignore_case" == "true" ]] && jq_flags='"i"'
+
+  # Count matches BEFORE replacement so we can short-circuit on zero (and avoid
+  # spending render credits on a no-op POST).
+  local match_count
+  match_count=$(echo "$script_resp" | jq --arg find "$find_text" --argjson flags "$jq_flags" '
+    [.editingScript.tracks[]? | select(.trackType=="CaptionTrack")
+      | .sections[]?.segments[]?.content.textElements[]?.text
+      | select(test($find; $flags))] | length
+  ')
+
+  if [[ "$match_count" == "0" ]]; then
+    jq -nc --arg find "$find_text" --arg repl "$replace_text" \
+      '{message: "no caption text matched; nothing to re-render", find: $find, replace: $repl, matchCount: 0}'
+    return 0
+  fi
+
   local edited
   edited=$(echo "$script_resp" | jq -c --arg find "$find_text" --arg repl "$replace_text" --argjson flags "$jq_flags" '
     .editingScript
@@ -922,19 +937,11 @@ cmd_caption_fix() {
       ))
   ')
 
-  # Count matches before/after so callers know if anything changed
-  local count
-  count=$(echo "$edited" | jq --arg find "$find_text" --argjson flags "$jq_flags" '
-    [.tracks[] | select(.trackType=="CaptionTrack")
-      | .sections[].segments[].content.textElements[].text
-      | select(test($find; $flags))] | length
-  ')
-
   local body
   body=$(jq -nc --argjson s "$edited" '{editingScript: $s}')
   api_post "$API_BASE/exportable-clips/$project_id.$cid/re-render" "$body" \
-    | jq --arg find "$find_text" --arg repl "$replace_text" --argjson matched "$count" \
-        '. + {find: $find, replace: $repl, remainingMatchCount: $matched}'
+    | jq --arg find "$find_text" --arg repl "$replace_text" --argjson matched "$match_count" \
+        '. + {find: $find, replace: $repl, matchCount: $matched}'
 }
 
 # Replace entire caption track from a transcript JSON file
