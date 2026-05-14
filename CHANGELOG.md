@@ -1,10 +1,8 @@
 # Changelog
 
-## 2.1.0 — Pure-skill repo (MCP moved to a separate repo)
+## 2.1.0 — Pure-skill repo
 
-The bundled stdio MCP server (introduced in 2.0.0) only worked on hosts that already have shell access — exactly the hosts where the bash CLI also works. It didn't unlock any audience the skill couldn't already serve, and it added a maintenance lane (drift between MCP tools and bash commands) plus an extra install-failure mode. So this release **removes the MCP from the plugin** and lets the skill drive the OpusClip REST API via the bundled bash CLI alone. The skill's eval went 15/19 → 19/19 in 1.1.0 on the bash CLI path; that's the path that ships.
-
-The MCP server source has also been removed from this repo. The future "real MCP" play is a hosted HTTPS endpoint at `https://mcp.opus.pro/mcp` (TBA) that would unlock Claude.ai / Cowork / Desktop via Custom Connector — that work will live in a separate repo. When that endpoint is live, a future release here will re-introduce `skills/opusclip/.mcp.json` pointing at the URL — one config file, no source code.
+The bundled stdio MCP server (introduced in 2.0.0) only worked on hosts that already have shell access — exactly the hosts where the bash CLI also works. It didn't unlock any audience the skill couldn't already serve, and it added a maintenance lane (drift between MCP tools and bash commands) plus an extra install-failure mode. This release **returns the repo to its pre-2.0.0 pure-skill shape**: a single skill at `skills/opusclip/` that drives the OpusClip REST API via a bundled bash CLI. The skill's eval went 15/19 → 19/19 in 1.1.0 on the bash CLI path; that's the path that ships.
 
 ### Removed
 - `plugins/opusclip/.mcp.json` — MCP server config.
@@ -20,7 +18,7 @@ The MCP server source has also been removed from this repo. The future "real MCP
 - README install table simplified — no more two-step Custom Connector + skill-upload for Claude.ai / Cowork. Skill upload is the one step.
 - All `docs/install/*.md` updated to drop MCP setup.
 
-- `mcp-server/` source directory — moved out of this repo. The future hosted MCP deployment will live in a separate repo (TBA).
+- `mcp-server/` source directory — out of scope for this repo.
 - `docs/install/` per-host install guides. SKILL.md and the README cover everything users need; the per-host walkthroughs were duplicating the same one-line install commands.
 
 ## 2.0.0 — Plugin marketplace + MCP server

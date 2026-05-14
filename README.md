@@ -27,10 +27,6 @@ export OPUSCLIP_API_KEY=sk_...
 - **`skills/opusclip/scripts/opusclip`** — bash CLI wrapping the OpusClip REST API + ffmpeg local utilities.
 - **`skills/opusclip/references/api-reference.md`** — endpoint schemas, request/response shapes.
 
-## Future: hosted MCP
-
-A hosted HTTPS MCP server is planned at `https://mcp.opus.pro/mcp` so cloud-chat hosts (Claude.ai, Cowork, Desktop) can connect via Custom Connector. That work lives in a separate repo (TBA). When live, this repo will gain a one-line `.mcp.json` pointing at the URL — no source-code addition here.
-
 ## Develop
 
 ```bash
