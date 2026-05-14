@@ -6,7 +6,7 @@ Claude.ai needs the skill uploaded as a zip. Pro / Max / Team / Enterprise plan 
 
 1. From this repo, zip the skill folder:
    ```bash
-   cd plugins/opusclip/skills && zip -r opusclip-skill.zip opusclip
+   cd skills && zip -r opusclip-skill.zip opusclip
    ```
 2. Open <https://claude.ai> → Settings → **Customize** → **Skills**
 3. Click **+** → upload `opusclip-skill.zip`

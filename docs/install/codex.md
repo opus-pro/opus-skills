@@ -14,7 +14,7 @@ Then inside the Codex TUI:
 /plugins
 ```
 
-Select `opusclip` → Install. The skill is discovered at `plugins/opusclip/skills/opusclip/SKILL.md` and drives the OpusClip REST API via the bundled bash CLI at `scripts/opusclip`.
+Select `opusclip` → Install. The skill is discovered at `skills/opusclip/SKILL.md` and drives the OpusClip REST API via the bundled bash CLI at `scripts/opusclip`.
 
 Codex reads `.claude-plugin/marketplace.json` natively (documented at <https://developers.openai.com/codex/plugins/build>), so no separate Codex-format marketplace file is needed.
 

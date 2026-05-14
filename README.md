@@ -1,8 +1,8 @@
 # opus-skills
 
-A plugin marketplace for [OpusClip](https://opus.pro) — adds video clipping, social posting, and more to your AI coding agent. Ships a SKILL.md the model auto-invokes, backed by a bash CLI wrapping the OpusClip REST API.
+A skill marketplace for [OpusClip](https://opus.pro) — add video clipping, social posting, and more to your AI coding agent. Ships a SKILL.md the model auto-invokes, backed by a bash CLI wrapping the OpusClip REST API.
 
-> A hosted HTTP MCP server is planned for cloud-chat hosts (Claude.ai, Cowork, Desktop) at `https://mcp.opus.pro/mcp`. Until then this plugin is skill-only. The MCP server source lives in [`mcp-server/`](mcp-server/) for that future deployment; it is not bundled into the plugin today.
+> A hosted HTTP MCP server is planned for cloud-chat hosts (Claude.ai, Cowork, Desktop) at `https://mcp.opus.pro/mcp`. Until then this is skill-only. The MCP server source lives in [`mcp-server/`](mcp-server/) for that future deployment.
 
 ## Install
 
@@ -12,14 +12,14 @@ A plugin marketplace for [OpusClip](https://opus.pro) — adds video clipping, s
 | **Codex CLI / Codex App** | `codex plugin marketplace add github:opus-pro/opus-skills` then `/plugins` in TUI — see [docs/install/codex.md](docs/install/codex.md) |
 | **Claude.ai** | Upload SKILL.md zip — see [docs/install/claude-ai.md](docs/install/claude-ai.md) |
 | **Claude Cowork** | Same as Claude.ai — see [docs/install/cowork.md](docs/install/cowork.md) |
-| **OpenClaw** | `openclaw plugins install github:opus-pro/opus-skills/plugins/opusclip` — see [docs/install/openclaw.md](docs/install/openclaw.md) |
+| **OpenClaw** | `openclaw plugins install github:opus-pro/opus-skills/skills/opusclip` — see [docs/install/openclaw.md](docs/install/openclaw.md) |
 | **Any agent with `npx skills`** | `npx skills add opus-pro/opus-skills` |
 
 ## What's in the box
 
-- **Skill** at `plugins/opusclip/skills/opusclip/SKILL.md` — tells the model when and how to call OpusClip. Auto-triggers on phrases like "clip this video", "make shorts", "post to YouTube".
-- **Bash CLI** at `plugins/opusclip/skills/opusclip/scripts/opusclip` — the skill's execution path. Wraps the OpusClip REST API plus ffmpeg-based local utilities (`storyboard`, `trim`).
-- **Reference docs** at `plugins/opusclip/skills/opusclip/references/api-reference.md`.
+- **Skill** at `skills/opusclip/SKILL.md` — tells the model when and how to call OpusClip. Auto-triggers on phrases like "clip this video", "make shorts", "post to YouTube".
+- **Bash CLI** at `skills/opusclip/scripts/opusclip` — the skill's execution path. Wraps the OpusClip REST API plus ffmpeg-based local utilities (`storyboard`, `trim`, `preview`).
+- **Reference docs** at `skills/opusclip/references/api-reference.md`.
 
 ## Prerequisites
 
@@ -31,13 +31,13 @@ A plugin marketplace for [OpusClip](https://opus.pro) — adds video clipping, s
 ```
 opus-skills/
 ├── .claude-plugin/marketplace.json      # marketplace — read by Claude Code, Codex, OpenClaw
-├── plugins/opusclip/                    # the plugin
+├── skills/opusclip/                     # the skill (also the plugin root)
 │   ├── .claude-plugin/plugin.json       # Claude Code manifest
 │   ├── .codex-plugin/plugin.json        # Codex manifest (adds `interface` for marketplace polish)
-│   └── skills/opusclip/
-│       ├── SKILL.md
-│       ├── scripts/opusclip             # bash CLI
-│       └── references/api-reference.md
+│   ├── SKILL.md
+│   ├── scripts/opusclip                 # bash CLI
+│   ├── templates/preview.html           # HTML preview template
+│   └── references/api-reference.md
 ├── mcp-server/                          # MCP server source (TS) — reserved for future hosted HTTP deployment
 └── docs/install/                        # per-agent install guides
 ```
@@ -50,9 +50,9 @@ cd opus-skills
 
 # Run the bash CLI directly
 export OPUSCLIP_API_KEY=sk_...
-plugins/opusclip/skills/opusclip/scripts/opusclip submit --url "https://youtube.com/watch?v=..."
+skills/opusclip/scripts/opusclip submit --url "https://youtube.com/watch?v=..."
 
-# MCP server source (not bundled into the plugin today; kept for future hosted HTTP deployment)
+# MCP server source (not active today; kept for future hosted HTTP deployment)
 cd mcp-server
 npm install && npm run build
 OPUSCLIP_API_KEY=... npm start            # stdio

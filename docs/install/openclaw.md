@@ -5,7 +5,7 @@ OpenClaw is a self-hosted personal AI agent that reads SKILL.md files in standar
 ## Option A — Plugin install (one command)
 
 ```bash
-openclaw plugins install github:opus-pro/opus-skills/plugins/opusclip
+openclaw plugins install github:opus-pro/opus-skills/skills/opusclip
 ```
 
 OpenClaw reads `.claude-plugin/plugin.json` and `.codex-plugin/plugin.json` via its compat layer. The skill auto-discovers from `skills/opusclip/SKILL.md` inside the plugin and drives the OpusClip REST API via the bundled bash CLI at `scripts/opusclip`.
