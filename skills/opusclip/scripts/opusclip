@@ -657,7 +657,12 @@ cmd_describe() {
         hashtags: .hashtags,
         keywords: .clipKeywords,
         duration_sec: ((.durationMs // 0) / 1000 | round),
-        score: .score
+        durationMs: .durationMs,
+        score: .score,
+        uriForPreview: .uriForPreview,
+        uriForExport: .uriForExport,
+        renderAsVideoPreview: .renderAsVideoPreview,
+        renderAsVideoFile: .renderAsVideoFile
       }'
   fi
 }
@@ -901,7 +906,17 @@ cmd_edit_clip_apply() {
   api_post "$API_BASE/exportable-clips/$project_id.$cid/re-render" "$body" | output
 }
 
-# Fix typos / phrasing: find/replace text across every caption TextElement
+# Fix typos / phrasing: find/replace text across every caption TextElement.
+#
+# Caption tracks store each word as its own TextElement (so per-word timing
+# can drive the karaoke-style highlight). Two modes:
+#
+#   * single-word --find  → regex gsub on every textElement.text (back-compat;
+#     supports in-word matches like --find "haha" --replace "ha")
+#   * multi-word --find   → walk the textElements array, replace consecutive
+#     token sequences 1:1. --replace must have the same word count, since
+#     each replacement token inherits the matched slot's timing. For
+#     different-length rewrites, fall back to caption-replace / apply.
 cmd_edit_clip_caption_fix() {
   local project_id="" clip_id="" find_text="" replace_text="" ignore_case="false"
   while [[ $# -gt 0 ]]; do
@@ -924,41 +939,113 @@ cmd_edit_clip_caption_fix() {
   local script_resp
   script_resp=$(api_get "$API_BASE/exportable-clips/$project_id.$cid?include=editingScript")
 
-  local jq_flags='""'
-  [[ "$ignore_case" == "true" ]] && jq_flags='"i"'
+  # Tokenize on whitespace runs to decide single- vs multi-word mode.
+  local find_tokens replace_tokens n_find n_repl
+  find_tokens=$(jq -nc --arg s "$find_text"    '$s | split("\\s+"; null) | map(select(. != ""))')
+  replace_tokens=$(jq -nc --arg s "$replace_text" '$s | split("\\s+"; null) | map(select(. != ""))')
+  n_find=$(jq -n --argjson t "$find_tokens"    '$t | length')
+  n_repl=$(jq -n --argjson t "$replace_tokens" '$t | length')
 
-  # Count matches BEFORE replacement so we can short-circuit on zero (and avoid
-  # spending render credits on a no-op POST).
-  local match_count
-  match_count=$(echo "$script_resp" | jq --arg find "$find_text" --argjson flags "$jq_flags" '
-    [.editingScript.tracks[]? | select(.trackType=="CaptionTrack")
-      | .sections[]?.segments[]?.content.textElements[]?.text
-      | select(test($find; $flags))] | length
-  ')
+  local edited match_count body
 
-  if [[ "$match_count" == "0" ]]; then
-    jq -nc --arg find "$find_text" --arg repl "$replace_text" \
-      '{message: "no caption text matched; nothing to re-render", find: $find, replace: $repl, matchCount: 0}'
-    return 0
+  if [[ "$n_find" -le 1 ]]; then
+    # Single-token path: regex gsub on each textElement.text (back-compat).
+    local jq_flags='""'
+    [[ "$ignore_case" == "true" ]] && jq_flags='"i"'
+
+    # Count matches BEFORE replacement so we can short-circuit on zero (and
+    # avoid spending render credits on a no-op POST).
+    match_count=$(echo "$script_resp" | jq --arg find "$find_text" --argjson flags "$jq_flags" '
+      [.editingScript.tracks[]? | select(.trackType=="CaptionTrack")
+        | .sections[]?.segments[]?.content.textElements[]?.text
+        | select(test($find; $flags))] | length
+    ')
+
+    if [[ "$match_count" == "0" ]]; then
+      jq -nc --arg find "$find_text" --arg repl "$replace_text" \
+        '{message: "no caption text matched; nothing to re-render", find: $find, replace: $repl, matchCount: 0, mode: "single-token"}'
+      return 0
+    fi
+
+    edited=$(echo "$script_resp" | jq -c --arg find "$find_text" --arg repl "$replace_text" --argjson flags "$jq_flags" '
+      .editingScript
+      | (.tracks |= map(
+          if .trackType == "CaptionTrack" then
+            .sections |= map(.segments |= map(
+              .content.textElements |= map(.text |= gsub($find; $repl; $flags))
+            ))
+          else . end
+        ))
+    ')
+  else
+    # Multi-token path: walk consecutive textElements, replace 1:1.
+    [[ "$n_find" == "$n_repl" ]] || die \
+"edit-clip caption-fix: multi-word --find has $n_find tokens but --replace has $n_repl.
+Captions are stored per-word with per-token timing, so multi-word replacements must
+be 1:1. For a different-length rewrite use:
+  opusclip edit-clip caption-replace --project P --clip C --transcript <file>
+  opusclip edit-clip apply           --project P --clip C --script    <file>"
+
+    # Apply seq-replace to every CaptionTrack section/segment; tally matches.
+    local edited_full
+    edited_full=$(echo "$script_resp" | jq -c \
+      --argjson ft "$find_tokens" \
+      --argjson rt "$replace_tokens" \
+      --argjson ic "$(jq -n --argjson v "$([[ "$ignore_case" == "true" ]] && echo true || echo false)" '$v')" '
+      def seq_replace($ft; $rt; $ic):
+        . as $els
+        | ($ft | length) as $n
+        | ($els | length) as $len
+        | (if $ic then ($ft | map(ascii_downcase)) else $ft end) as $needle
+        | (if $len < $n then [] else
+            [range(0; $len - $n + 1)
+              | . as $i
+              | ([range(0; $n) as $j | $els[$i + $j].text]
+                 | if $ic then map(ascii_downcase) else . end) as $window
+              | select($window == $needle)
+              | $i]
+          end) as $raw_starts
+        | (reduce $raw_starts[] as $i ({last: 0, hits: []};
+            if $i >= .last then
+              .hits += [$i] | .last = $i + $n
+            else . end)).hits as $starts
+        | ($starts | length) as $matched
+        | (reduce $starts[] as $i ($els;
+            reduce range(0; $n) as $j (.; .[$i + $j].text = $rt[$j]))) as $new_els
+        | {elements: $new_els, matched: $matched};
+
+      .editingScript
+      | . as $script
+      | reduce range(0; (.tracks | length)) as $ti (
+          {script: $script, matched: 0};
+          if .script.tracks[$ti].trackType == "CaptionTrack" then
+            reduce range(0; (.script.tracks[$ti].sections | length)) as $si (.;
+              reduce range(0; (.script.tracks[$ti].sections[$si].segments | length)) as $gi (.;
+                (.script.tracks[$ti].sections[$si].segments[$gi].content.textElements
+                  | seq_replace($ft; $rt; $ic)) as $r
+                | .script.tracks[$ti].sections[$si].segments[$gi].content.textElements = $r.elements
+                | .matched = .matched + $r.matched
+              )
+            )
+          else . end
+        )
+    ')
+    edited=$(echo "$edited_full" | jq -c '.script')
+    match_count=$(echo "$edited_full" | jq -r '.matched')
+
+    if [[ "$match_count" == "0" ]]; then
+      jq -nc --arg find "$find_text" --arg repl "$replace_text" \
+        '{message: "no caption text matched; nothing to re-render", find: $find, replace: $repl, matchCount: 0, mode: "multi-token"}'
+      return 0
+    fi
   fi
 
-  local edited
-  edited=$(echo "$script_resp" | jq -c --arg find "$find_text" --arg repl "$replace_text" --argjson flags "$jq_flags" '
-    .editingScript
-    | (.tracks |= map(
-        if .trackType == "CaptionTrack" then
-          .sections |= map(.segments |= map(
-            .content.textElements |= map(.text |= gsub($find; $repl; $flags))
-          ))
-        else . end
-      ))
-  ')
-
-  local body
   body=$(jq -nc --argjson s "$edited" '{editingScript: $s}')
+  local mode_label
+  [[ "$n_find" -le 1 ]] && mode_label="single-token" || mode_label="multi-token"
   api_post "$API_BASE/exportable-clips/$project_id.$cid/re-render" "$body" \
-    | jq --arg find "$find_text" --arg repl "$replace_text" --argjson matched "$match_count" \
-        '. + {find: $find, replace: $repl, matchCount: $matched}'
+    | jq --arg find "$find_text" --arg repl "$replace_text" --argjson matched "$match_count" --arg mode "$mode_label" \
+        '. + {find: $find, replace: $repl, matchCount: $matched, mode: $mode}'
 }
 
 # Replace entire caption track from a transcript JSON file
@@ -1072,8 +1159,11 @@ cmd_edit_clip_trim() {
   [[ -n "$end_ms" ]]     || die "edit-clip trim: --end (seconds) or --end-ms is required"
   [[ "$end_ms" -gt "$start_ms" ]] || die "edit-clip trim: --end must be greater than --start"
 
-  # v1 ships shrink only. Extending past source duration is untested and may
-  # silently no-op or error at the engine; print a warning if requested.
+  # v1 ships shrink only. Extending past source duration is an engine no-op
+  # (the EditingScript sectionTimeline gets clamped silently, the re-render
+  # publishes the original mp4, and the caller is left wondering why nothing
+  # changed). Clamp --end to the actual durationMs so callers get a
+  # deterministic shrink — and surface the clamp in the response.
   local cid
   cid=$(clip_suffix "$clip_id" "$project_id")
   local clip_meta
@@ -1081,9 +1171,14 @@ cmd_edit_clip_trim() {
   local current_duration
   current_duration=$(echo "$clip_meta" | jq -r --arg cid "$cid" '
     .data[] | select(.curationId == $cid or .id == $cid) | .durationMs' | head -1)
-  if [[ -n "$current_duration" && "$end_ms" -gt "$current_duration" ]]; then
-    echo "warning: --end ($end_ms ms) > current clip duration ($current_duration ms). Extend is unverified at the engine; behaviour may be a no-op or error." >&2
+  local clamp_note=""
+  local requested_end_ms="$end_ms"
+  if [[ -n "$current_duration" && "$current_duration" != "null" && "$end_ms" -gt "$current_duration" ]]; then
+    clamp_note="--end ($requested_end_ms ms) > current clip duration ($current_duration ms); clamped to $current_duration ms"
+    echo "note: $clamp_note" >&2
+    end_ms="$current_duration"
   fi
+  [[ "$end_ms" -gt "$start_ms" ]] || die "edit-clip trim: after clamp, --end ($end_ms) must be greater than --start ($start_ms)"
 
   local script_resp
   script_resp=$(api_get "$API_BASE/exportable-clips/$project_id.$cid?include=editingScript")
@@ -1105,7 +1200,9 @@ cmd_edit_clip_trim() {
   local body
   body=$(jq -nc --argjson s "$edited" '{editingScript: $s}')
   api_post "$API_BASE/exportable-clips/$project_id.$cid/re-render" "$body" \
-    | jq --argjson s "$start_ms" --argjson e "$end_ms" '. + {startMs: $s, endMs: $e, durationMs: ($e - $s)}'
+    | jq --argjson s "$start_ms" --argjson e "$end_ms" --argjson req "$requested_end_ms" --arg note "$clamp_note" \
+        '. + {startMs: $s, endMs: $e, durationMs: ($e - $s)}
+          + (if $note != "" then {requestedEndMs: $req, clampedEndMs: $e, note: $note} else {} end)'
 }
 
 # ── Preview ──────────────────────────────────────────────────────────────

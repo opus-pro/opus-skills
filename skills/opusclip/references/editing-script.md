@@ -92,12 +92,21 @@ Key things to remember:
 Inside `tracks[trackType=="CaptionTrack"].sections[].segments[].content.textElements[]`, change `.text` on matching elements:
 
 ```bash
+# Single-word fix — regex gsub on every textElement.text (matches inside words too).
 opusclip edit-clip caption-fix --project P --clip C \
   --find "prooduct" --replace "product"
 # add --ignore-case for case-insensitive
+
+# Multi-word fix — caption-fix walks consecutive textElements and replaces 1:1.
+# --replace must have the same word count as --find (each replacement token
+# inherits the matched slot's per-word timing).
+opusclip edit-clip caption-fix --project P --clip C \
+  --find "2 lonely" --replace "Two lonely"
 ```
 
-Equivalent power-user form:
+**Why the 1:1 constraint?** Caption tracks store every word as its own `TextElement` so per-word timing can drive the highlight animation. A multi-word `--find` matches a sliding window over the token sequence; replacement tokens overwrite the matched slots in place. Different-length rewrites (e.g. `"2"` → `"Two and a half"`) would force the CLI to invent or drop timing — use `caption-replace` (whole-track rewrite from a transcript) or `apply` (custom EditingScript edit) instead.
+
+Equivalent power-user form (single-word, regex):
 
 ```bash
 opusclip edit-clip get --project P --clip C --output script.json
@@ -192,7 +201,7 @@ Typical re-render time on a 30 s clip: **~30–45 s** for both targets.
 
 ## What's *not* yet verified
 
-- **Extend** (setting `sectionTimeline.out > sourceDurationMs`). `edit-clip trim` will warn but still send the request. The engine may freeze-last-frame, silently clamp, or error.
+- **Extend** (setting `sectionTimeline.out > sourceDurationMs`). The engine no-ops silently — `edit-clip trim` now clamps `--end` down to the current `durationMs` and reports the clamp via `clampedEndMs`/`note` in the response. Cross-source extends (lengthening past the source video) are out of scope.
 - Re-render of clips that originated from non-`skipCurate` flows (multi-clip projects) was verified once and works the same way, but the editingScript will have more tracks (BRoll, etc.) — leave the ones you're not editing untouched.
 
 ## Reference
