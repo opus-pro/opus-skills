@@ -14,18 +14,18 @@ Then inside the Codex TUI:
 /plugins
 ```
 
-Select `opusclip` → Install. The skill is discovered at `plugins/opusclip/skills/opusclip/SKILL.md` and the MCP server is configured from `plugins/opusclip/.mcp.json` (`npx -y @opus-pro/opusclip-mcp@latest`).
+Select `opusclip` → Install. The skill is discovered at `plugins/opusclip/skills/opusclip/SKILL.md` and the MCP server is configured from `plugins/opusclip/.mcp.json` — `node ${CLAUDE_PLUGIN_ROOT}/mcp-server.mjs`, the bundled JS shipped with the plugin (no `npx`, no external download).
 
 Codex reads `.claude-plugin/marketplace.json` natively (documented at <https://developers.openai.com/codex/plugins/build>), so no separate Codex-format marketplace file is needed.
 
 ## Manual MCP-only install (no plugin)
 
-If you only want the MCP server without the skill, edit `~/.codex/config.toml`:
+If you only want the MCP server without the skill, clone this repo and point Codex at the bundled JS in `~/.codex/config.toml`:
 
 ```toml
 [mcp_servers.opusclip]
-command = "npx"
-args = ["-y", "@opus-pro/opusclip-mcp@latest"]
+command = "node"
+args = ["/abs/path/to/opus-skills/plugins/opusclip/mcp-server.mjs"]
 env = { OPUSCLIP_API_KEY = "sk_..." }
 ```
 

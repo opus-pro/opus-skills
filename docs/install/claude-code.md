@@ -7,7 +7,7 @@
 /plugin install opusclip@opus-skills
 ```
 
-`/plugin install` clones the plugin into `~/.claude/plugins/cache/opus-skills/opusclip/<version>/`, registers the skill (`SKILL.md` auto-discovered from `skills/opusclip/`), and starts the MCP server defined in `.mcp.json` (`npx -y @opus-pro/opusclip-mcp@latest`).
+`/plugin install` clones the plugin into `~/.claude/plugins/cache/opus-skills/opusclip/<version>/`, registers the skill (`SKILL.md` auto-discovered from `skills/opusclip/`), and starts the MCP server defined in `.mcp.json` — `node ${CLAUDE_PLUGIN_ROOT}/mcp-server.mjs`, the bundled JS that ships with the plugin (no `npx`, no external download).
 
 ## Configure
 
@@ -44,5 +44,5 @@ The model should call `submit_video` and return a clip-project ID.
 ## Troubleshoot
 
 - **MCP server not starting** — run Claude Code with `--debug`. The most common cause is `OPUSCLIP_API_KEY` not in the environment Claude Code inherits.
-- **`npx` errors on first call** — `npx -y @opus-pro/opusclip-mcp@latest` will download on first run; a slow network can make the first call time out. Retry.
+- **Node not on PATH** — `.mcp.json` runs the bundle with `node`. Node ≥18 must be available in the environment Claude Code launches from.
 - **Tools not appearing** — `/plugin disable opusclip@opus-skills` then `/plugin enable opusclip@opus-skills` to re-register.

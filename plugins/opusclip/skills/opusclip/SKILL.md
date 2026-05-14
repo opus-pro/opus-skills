@@ -10,7 +10,7 @@ Turn long-form videos into short clips via the OpusClip API.
 ## Prerequisites
 
 - `OPUSCLIP_API_KEY` must be set. Copy from https://clip.opus.pro/dashboard with an [Enterprise plan](https://www.opus.pro/pricing?utm_source=cli&utm_medium=opus).
-- For MCP tools: nothing else — `npx -y @opus-pro/opusclip-mcp` runs the server.
+- For MCP tools: nothing else — Claude Code spawns `node mcp-server.mjs` (the bundled JS shipped with this plugin).
 - For bash CLI fallback: `curl` and `jq` on PATH (`ffmpeg` for storyboard / trim).
 
 ## Tool dispatch: MCP first, bash CLI fallback

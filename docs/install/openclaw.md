@@ -27,8 +27,8 @@ If you used Option B (or just want stand-alone MCP), edit `~/.openclaw/openclaw.
   "mcpServers": {
     "opusclip": {
       "transport": "stdio",
-      "command": "npx",
-      "args": ["-y", "@opus-pro/opusclip-mcp@latest"],
+      "command": "node",
+      "args": ["/abs/path/to/opus-skills/plugins/opusclip/mcp-server.mjs"],
       "env": { "OPUSCLIP_API_KEY": "sk_..." }
     }
   }

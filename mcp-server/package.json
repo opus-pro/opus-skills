@@ -20,6 +20,7 @@
   ],
   "scripts": {
     "build": "tsc",
+    "bundle": "esbuild src/stdio.ts --bundle --platform=node --format=esm --target=node18 --outfile=../plugins/opusclip/mcp-server.mjs",
     "start": "node dist/stdio.js",
     "start:http": "node dist/http.js",
     "prepublishOnly": "npm run build"
@@ -32,6 +33,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "esbuild": "^0.24.0",
     "typescript": "^5.6.0"
   },
   "keywords": [
