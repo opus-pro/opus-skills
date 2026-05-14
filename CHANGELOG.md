@@ -1,10 +1,10 @@
 # Changelog
 
-## 2.1.0 — Skill-only plugin (MCP set aside for hosted future)
+## 2.1.0 — Pure-skill repo (MCP moved to a separate repo)
 
 The bundled stdio MCP server (introduced in 2.0.0) only worked on hosts that already have shell access — exactly the hosts where the bash CLI also works. It didn't unlock any audience the skill couldn't already serve, and it added a maintenance lane (drift between MCP tools and bash commands) plus an extra install-failure mode. So this release **removes the MCP from the plugin** and lets the skill drive the OpusClip REST API via the bundled bash CLI alone. The skill's eval went 15/19 → 19/19 in 1.1.0 on the bash CLI path; that's the path that ships.
 
-The `mcp-server/` source stays in the repo. The plan is to deploy it as a hosted HTTPS MCP at `https://mcp.opus.pro/mcp` so cloud-chat hosts (Claude.ai, Cowork, Desktop) can connect via Custom Connector — that's the "real MCP" this work is reserved for. When that endpoint is live, a future release will re-introduce `.mcp.json` pointing at the URL.
+The MCP server source has also been removed from this repo. The future "real MCP" play is a hosted HTTPS endpoint at `https://mcp.opus.pro/mcp` (TBA) that would unlock Claude.ai / Cowork / Desktop via Custom Connector — that work will live in a separate repo. When that endpoint is live, a future release here will re-introduce `skills/opusclip/.mcp.json` pointing at the URL — one config file, no source code.
 
 ### Removed
 - `plugins/opusclip/.mcp.json` — MCP server config.
@@ -20,8 +20,8 @@ The `mcp-server/` source stays in the repo. The plan is to deploy it as a hosted
 - README install table simplified — no more two-step Custom Connector + skill-upload for Claude.ai / Cowork. Skill upload is the one step.
 - All `docs/install/*.md` updated to drop MCP setup.
 
-### Kept
-- `mcp-server/` source directory — reserved for the future hosted HTTP deployment.
+- `mcp-server/` source directory — moved out of this repo. The future hosted MCP deployment will live in a separate repo (TBA).
+- `docs/install/` per-host install guides. SKILL.md and the README cover everything users need; the per-host walkthroughs were duplicating the same one-line install commands.
 
 ## 2.0.0 — Plugin marketplace + MCP server
 
