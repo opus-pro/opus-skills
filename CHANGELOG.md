@@ -9,7 +9,11 @@ The `mcp-server/` source stays in the repo. The plan is to deploy it as a hosted
 ### Removed
 - `plugins/opusclip/.mcp.json` — MCP server config.
 - `plugins/opusclip/mcp-server.mjs` — bundled stdio MCP server JS.
-- MCP-aware sections of `SKILL.md` (tool dispatch, MCP tool table, MCP tool argument shapes). Workflows now use bash CLI invocations end-to-end.
+- MCP-aware sections of `SKILL.md` (tool dispatch, MCP tool table, MCP tool argument shapes).
+
+### Restored
+- `plugins/opusclip/skills/opusclip/templates/preview.html` — the 2.0.0 marketplace rebase deleted this template but kept the bash `cmd_preview` function + dispatch, leaving `opusclip preview` broken with "template not found". Template is back; `opusclip preview --project ID` works again.
+- `SKILL.md` is now byte-identical to the 1.x eval-tuned baseline (`ee122a9`, the 19/19 version from #12) — including the `### preview` subsection and the preview step in the "Clip a YouTube video" workflow.
 
 ### Changed
 - README install table simplified — no more two-step Custom Connector + skill-upload for Claude.ai / Cowork. Skill upload is the one step.
