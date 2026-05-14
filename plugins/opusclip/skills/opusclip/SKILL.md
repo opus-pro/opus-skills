@@ -22,6 +22,7 @@ opusclip list --project ID [--summary]        List clips (alias: get-clips)
 opusclip describe --project ID --clip CID     Get clip details (transcript, layout info)
 opusclip storyboard --project ID --clip CID   Generate 2x2 frame preview (requires ffmpeg)
 opusclip trim --project ID --clip CID --start S --end E  Local trim (requires ffmpeg)
+opusclip preview --project ID [--output PATH] Generate HTML preview and open in browser
 opusclip share --project ID                   Share project (alias: share-project)
 opusclip templates                            List brand templates
 opusclip upload --file PATH [options]         Upload local video + create project
@@ -78,6 +79,24 @@ opusclip list --collection COLLECTION_ID
 When presenting clips to the user, always use `--summary` to get human-readable fields (title, description, hashtags, scores). Display clips with their title and description rather than just clip IDs.
 
 The output contains `project_id` and `clip_id` as separate fields. Use `clip_id` (e.g. `0RiWBs5xuF`) for `--clip` flags, not the composite ID.
+
+### preview
+
+Generate an HTML preview page with video players for all clips and open it in the browser.
+
+```bash
+opusclip preview --project PROJECT_ID
+opusclip preview --project PROJECT_ID --output /path/to/output.html
+opusclip preview --collection COLLECTION_ID
+```
+
+| Flag | Description |
+|------|-------------|
+| `--project` | Project ID |
+| `--collection` | Collection ID |
+| `--output` | Custom output path (default: `/tmp/opusclip-preview-{id}.html`) |
+
+The preview page shows clips sorted by score with inline video players, titles, descriptions, hashtags, and detailed AI scores (hook, coherence, connection, trend). Use this whenever the user wants to watch or preview their clips.
 
 ### share
 
@@ -199,6 +218,8 @@ When the user doesn't specify a post title, use the clip's title from the `list 
 opusclip submit --url "https://youtube.com/watch?v=VIDEO_ID"
 # Wait for processing, then:
 opusclip list --project PROJECT_ID --summary
+# Preview clips in browser:
+opusclip preview --project PROJECT_ID
 ```
 
 ### Use ClipAnything with a custom prompt
