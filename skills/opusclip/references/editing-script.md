@@ -16,7 +16,7 @@ GET  /api/exportable-clips/:clipFullId
        ↓ uriForExport now points at the new mp4
 ```
 
-The CLI's higher-level verbs (`caption-fix`, `caption-replace`, `trim-render`) all wrap exactly this pattern. The escape-hatch verbs (`editing-script`, `re-render`) let you do anything the web editor supports — any edit it can do, an API consumer can do.
+The CLI's `opusclip edit-clip` umbrella wraps exactly this pattern. Five sub-verbs — `get`, `apply`, `caption-fix`, `caption-replace`, `trim` — all hit the same primitive. `apply --script <file>` is the escape hatch: any edit the web editor supports, an API consumer can do.
 
 ## EditingScript shape (the parts you'll actually touch)
 
@@ -80,7 +80,7 @@ Key things to remember:
 Inside `tracks[trackType=="CaptionTrack"].sections[].segments[].content.textElements[]`, change `.text` on matching elements:
 
 ```bash
-opusclip caption-fix --project P --clip C \
+opusclip edit-clip caption-fix --project P --clip C \
   --find "prooduct" --replace "product"
 # add --ignore-case for case-insensitive
 ```
@@ -88,7 +88,7 @@ opusclip caption-fix --project P --clip C \
 Equivalent power-user form:
 
 ```bash
-opusclip editing-script --project P --clip C --output script.json
+opusclip edit-clip get --project P --clip C --output script.json
 jq '
   .tracks |= map(
     if .trackType=="CaptionTrack" then
@@ -100,7 +100,7 @@ jq '
     else . end
   )
 ' script.json > script.edit.json
-opusclip re-render --project P --clip C --script script.edit.json
+opusclip edit-clip apply --project P --clip C --script script.edit.json
 ```
 
 ## Recipe — trim (shrink)
@@ -108,14 +108,14 @@ opusclip re-render --project P --clip C --script script.edit.json
 For every track section that has timing, set both `sectionTimeline.out` and `sectionDuration.eO` to the new end time:
 
 ```bash
-opusclip trim-render --project P --clip C --start 0 --end 15
+opusclip edit-clip trim --project P --clip C --start 0 --end 15
 # values are in seconds; use --start-ms / --end-ms for milliseconds
 ```
 
 Equivalent power-user form:
 
 ```bash
-opusclip editing-script --project P --clip C --output script.json
+opusclip edit-clip get --project P --clip C --output script.json
 jq '
   .tracks |= map(
     if (.sections // []) | length > 0 and (.sections[0].sectionTimeline // null) != null then
@@ -126,7 +126,7 @@ jq '
     else . end
   )
 ' script.json > script.edit.json
-opusclip re-render --project P --clip C --script script.edit.json
+opusclip edit-clip apply --project P --clip C --script script.edit.json
 ```
 
 ## Recipe — replace whole caption track
@@ -147,7 +147,7 @@ You bring a transcript file:
 ```
 
 ```bash
-opusclip caption-replace --project P --clip C --transcript captions.json
+opusclip edit-clip caption-replace --project P --clip C --transcript captions.json
 ```
 
 `words` is optional — when omitted, each segment becomes one `TextElement` spanning `startMs..endMs`. Supply `words` for karaoke-style word-by-word highlighting.
@@ -180,7 +180,7 @@ Typical re-render time on a 30 s clip: **~30–45 s** for both targets.
 
 ## What's *not* yet verified
 
-- **Extend** (setting `sectionTimeline.out > sourceDurationMs`). `trim-render` will warn but still send the request. The engine may freeze-last-frame, silently clamp, or error.
+- **Extend** (setting `sectionTimeline.out > sourceDurationMs`). `edit-clip trim` will warn but still send the request. The engine may freeze-last-frame, silently clamp, or error.
 - Re-render of clips that originated from non-`skipCurate` flows (multi-clip projects) was verified once and works the same way, but the editingScript will have more tracks (BRoll, etc.) — leave the ones you're not editing untouched.
 
 ## Reference

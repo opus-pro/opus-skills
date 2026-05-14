@@ -22,11 +22,12 @@ opusclip list --project ID [--summary]        List clips (alias: get-clips)
 opusclip describe --project ID --clip CID     Get clip details (transcript, layout info)
 opusclip storyboard --project ID --clip CID   Generate 2x2 frame preview (requires ffmpeg)
 opusclip trim --project ID --clip CID --start S --end E    Local ffmpeg trim (no API call, no captions)
-opusclip caption-fix --project ID --clip CID --find X --replace Y   Replace caption text + re-render (charged)
-opusclip caption-replace --project ID --clip CID --transcript FILE  Replace caption track + re-render (charged)
-opusclip trim-render --project ID --clip CID --start S --end E      Server-side trim + re-render (charged)
-opusclip editing-script --project ID --clip CID [--output PATH]     Fetch EditingScript JSON for round-trip edits
-opusclip re-render --project ID --clip CID --script FILE            Submit an edited EditingScript directly
+opusclip edit-clip <sub> [flags]              Server-side clip edits (charged, re-renders the clip)
+  get             Fetch EditingScript JSON for round-trip edits
+  apply           Submit an edited EditingScript directly
+  caption-fix     Replace caption text (--find X --replace Y)
+  caption-replace Replace caption track from a transcript file (--transcript FILE)
+  trim            Server-side trim (--start S --end E; shrink only)
 opusclip preview --project ID [--output PATH] Generate HTML preview and open in browser
 opusclip share --project ID                   Share project (alias: share-project)
 opusclip templates                            List brand templates

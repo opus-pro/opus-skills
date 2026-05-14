@@ -827,29 +827,50 @@ cmd_trim() {
   echo "{\"output\": \"$out_file\", \"start\": $start_sec, \"end\": $end_sec}"
 }
 
-# ── EditingScript round-trip (server-side re-render) ─────────────────────
+# ── Edit Clip (server-side re-render) ────────────────────────────────────
 #
-# Single endpoint, sparse-fieldset opt-in:
-#   GET  /api/exportable-clips/:clipFullId?include=editingScript  → fetch
-#   POST /api/exportable-clips/:clipFullId/re-render              → send edited script back
+# One umbrella verb wraps every server-side edit a clip can take. Sub-verbs:
 #
-# Higher-level verbs (caption-fix, caption-replace, trim-render) wrap this
-# pattern. Power users / agents can also call `editing-script` and `re-render`
-# directly to perform any edit the web editor supports.
+#   opusclip edit-clip get             fetch the clip's EditingScript JSON
+#   opusclip edit-clip apply           submit a fully-edited script back
+#   opusclip edit-clip caption-fix     find/replace caption text
+#   opusclip edit-clip caption-replace replace whole caption track from transcript
+#   opusclip edit-clip trim            server-side trim (shrink only)
+#
+# All sub-verbs share the same underlying endpoints:
+#   GET  /api/exportable-clips/:clipFullId?include=editingScript
+#   POST /api/exportable-clips/:clipFullId/re-render
+# The wrapper does the EditingScript walking; the API stays a generic
+# passthrough. Future edit ops the web editor adds are reachable through
+# `edit-clip apply --script` without any new wrapper.
+
+cmd_edit_clip() {
+  local subcmd="${1:-}"; shift 2>/dev/null || true
+  case "$subcmd" in
+    get)             cmd_edit_clip_get "$@" ;;
+    apply)           cmd_edit_clip_apply "$@" ;;
+    caption-fix)     cmd_edit_clip_caption_fix "$@" ;;
+    caption-replace) cmd_edit_clip_caption_replace "$@" ;;
+    trim)            cmd_edit_clip_trim "$@" ;;
+    *)
+      die "edit-clip: unknown subcommand '$subcmd' (use get|apply|caption-fix|caption-replace|trim)"
+      ;;
+  esac
+}
 
 # Fetch the EditingScript JSON for a clip
-cmd_editing_script() {
+cmd_edit_clip_get() {
   local project_id="" clip_id="" out_file=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --project) project_id="$2"; shift 2 ;;
       --clip)    clip_id="$2"; shift 2 ;;
       --output)  out_file="$2"; shift 2 ;;
-      *) die "editing-script: unknown flag '$1'" ;;
+      *) die "edit-clip get: unknown flag '$1'" ;;
     esac
   done
-  [[ -n "$project_id" ]] || die "editing-script: --project is required"
-  [[ -n "$clip_id" ]]    || die "editing-script: --clip is required"
+  [[ -n "$project_id" ]] || die "edit-clip get: --project is required"
+  [[ -n "$clip_id" ]]    || die "edit-clip get: --clip is required"
 
   local cid="$(clip_suffix "$clip_id" "$project_id")"
   local body
@@ -864,20 +885,20 @@ cmd_editing_script() {
 }
 
 # Submit a fully-edited EditingScript back for re-render
-cmd_re_render() {
+cmd_edit_clip_apply() {
   local project_id="" clip_id="" script_file=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --project) project_id="$2"; shift 2 ;;
       --clip)    clip_id="$2"; shift 2 ;;
       --script)  script_file="$2"; shift 2 ;;
-      *) die "re-render: unknown flag '$1'" ;;
+      *) die "edit-clip apply: unknown flag '$1'" ;;
     esac
   done
-  [[ -n "$project_id" ]]   || die "re-render: --project is required"
-  [[ -n "$clip_id" ]]      || die "re-render: --clip is required"
-  [[ -n "$script_file" ]]  || die "re-render: --script <file> is required"
-  [[ -f "$script_file" ]]  || die "re-render: file '$script_file' not found"
+  [[ -n "$project_id" ]]   || die "edit-clip apply: --project is required"
+  [[ -n "$clip_id" ]]      || die "edit-clip apply: --clip is required"
+  [[ -n "$script_file" ]]  || die "edit-clip apply: --script <file> is required"
+  [[ -f "$script_file" ]]  || die "edit-clip apply: file '$script_file' not found"
 
   local cid="$(clip_suffix "$clip_id" "$project_id")"
   local body
@@ -886,7 +907,7 @@ cmd_re_render() {
 }
 
 # Fix typos / phrasing: find/replace text across every caption TextElement
-cmd_caption_fix() {
+cmd_edit_clip_caption_fix() {
   local project_id="" clip_id="" find_text="" replace_text="" ignore_case="false"
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -895,13 +916,13 @@ cmd_caption_fix() {
       --find)        find_text="$2"; shift 2 ;;
       --replace)     replace_text="$2"; shift 2 ;;
       --ignore-case) ignore_case="true"; shift ;;
-      *) die "caption-fix: unknown flag '$1'" ;;
+      *) die "edit-clip caption-fix: unknown flag '$1'" ;;
     esac
   done
-  [[ -n "$project_id" ]]   || die "caption-fix: --project is required"
-  [[ -n "$clip_id" ]]      || die "caption-fix: --clip is required"
-  [[ -n "$find_text" ]]    || die "caption-fix: --find is required"
-  [[ -n "$replace_text" ]] || die "caption-fix: --replace is required"
+  [[ -n "$project_id" ]]   || die "edit-clip caption-fix: --project is required"
+  [[ -n "$clip_id" ]]      || die "edit-clip caption-fix: --clip is required"
+  [[ -n "$find_text" ]]    || die "edit-clip caption-fix: --find is required"
+  [[ -n "$replace_text" ]] || die "edit-clip caption-fix: --replace is required"
 
   local cid="$(clip_suffix "$clip_id" "$project_id")"
   local script_resp
@@ -947,20 +968,20 @@ cmd_caption_fix() {
 # Replace entire caption track from a transcript JSON file
 # File shape: { "segments": [{ "text": "...", "startMs": 0, "endMs": 1500,
 #                              "words"?: [{ "word": "...", "startMs": 0, "endMs": 500 }] }] }
-cmd_caption_replace() {
+cmd_edit_clip_caption_replace() {
   local project_id="" clip_id="" transcript_file=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --project)    project_id="$2"; shift 2 ;;
       --clip)       clip_id="$2"; shift 2 ;;
       --transcript) transcript_file="$2"; shift 2 ;;
-      *) die "caption-replace: unknown flag '$1'" ;;
+      *) die "edit-clip caption-replace: unknown flag '$1'" ;;
     esac
   done
-  [[ -n "$project_id" ]]       || die "caption-replace: --project is required"
-  [[ -n "$clip_id" ]]          || die "caption-replace: --clip is required"
-  [[ -n "$transcript_file" ]]  || die "caption-replace: --transcript <file> is required"
-  [[ -f "$transcript_file" ]]  || die "caption-replace: file '$transcript_file' not found"
+  [[ -n "$project_id" ]]       || die "edit-clip caption-replace: --project is required"
+  [[ -n "$clip_id" ]]          || die "edit-clip caption-replace: --clip is required"
+  [[ -n "$transcript_file" ]]  || die "edit-clip caption-replace: --transcript <file> is required"
+  [[ -f "$transcript_file" ]]  || die "edit-clip caption-replace: file '$transcript_file' not found"
 
   local cid="$(clip_suffix "$clip_id" "$project_id")"
   local script_resp
@@ -1004,7 +1025,7 @@ cmd_caption_replace() {
 }
 
 # Server-side trim: shrink the clip via re-render (charged; opposite of local `trim`)
-cmd_trim_render() {
+cmd_edit_clip_trim() {
   local project_id="" clip_id="" start_ms="" end_ms=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -1014,14 +1035,14 @@ cmd_trim_render() {
       --end-ms)   end_ms="$2"; shift 2 ;;
       --start)    start_ms="$(awk -v v="$2" 'BEGIN{printf "%d", v*1000}')"; shift 2 ;;
       --end)      end_ms="$(awk -v v="$2" 'BEGIN{printf "%d", v*1000}')"; shift 2 ;;
-      *) die "trim-render: unknown flag '$1'" ;;
+      *) die "edit-clip trim: unknown flag '$1'" ;;
     esac
   done
-  [[ -n "$project_id" ]] || die "trim-render: --project is required"
-  [[ -n "$clip_id" ]]    || die "trim-render: --clip is required"
-  [[ -n "$start_ms" ]]   || die "trim-render: --start (seconds) or --start-ms is required"
-  [[ -n "$end_ms" ]]     || die "trim-render: --end (seconds) or --end-ms is required"
-  [[ "$end_ms" -gt "$start_ms" ]] || die "trim-render: --end must be greater than --start"
+  [[ -n "$project_id" ]] || die "edit-clip trim: --project is required"
+  [[ -n "$clip_id" ]]    || die "edit-clip trim: --clip is required"
+  [[ -n "$start_ms" ]]   || die "edit-clip trim: --start (seconds) or --start-ms is required"
+  [[ -n "$end_ms" ]]     || die "edit-clip trim: --end (seconds) or --end-ms is required"
+  [[ "$end_ms" -gt "$start_ms" ]] || die "edit-clip trim: --end must be greater than --start"
 
   # v1 ships shrink only. Extending past source duration is untested and may
   # silently no-op or error at the engine; print a warning if requested.
@@ -1181,11 +1202,8 @@ COMMANDS
   describe          Get clip details — transcript, layout info
   storyboard        Generate 2x2 frame grid image (requires ffmpeg)
   trim              Trim a clip locally (requires ffmpeg, no API call)
-  editing-script    Fetch the EditingScript JSON for a clip (server-side edits)
-  re-render         Submit an edited EditingScript back to re-render (charged)
-  caption-fix       Replace caption text (find/replace) and re-render (charged)
-  caption-replace   Replace caption track from a transcript JSON and re-render (charged)
-  trim-render       Server-side trim (shrink) with re-render (charged)
+  edit-clip         Server-side clip edits via re-render (charged):
+                    get | apply | caption-fix | caption-replace | trim
   preview           Generate HTML preview page and open in browser
   share             Update project visibility (alias: share-project)
   templates         List available brand templates
@@ -1224,19 +1242,20 @@ EXAMPLES
   # Server-side edits (charged: re-render via API; see references/editing-script.md)
   #
   # Fix a typo in the captions:
-  opusclip caption-fix --project PROJECT_ID --clip CLIP_ID \\
+  opusclip edit-clip caption-fix --project PROJECT_ID --clip CLIP_ID \\
     --find "prooduct" --replace "product"
   #
   # Replace the whole caption track from a transcript file:
-  opusclip caption-replace --project PROJECT_ID --clip CLIP_ID --transcript captions.json
+  opusclip edit-clip caption-replace --project PROJECT_ID --clip CLIP_ID \\
+    --transcript captions.json
   #
   # Trim and re-render (shrink only; extend is unverified at the engine):
-  opusclip trim-render --project PROJECT_ID --clip CLIP_ID --start 0 --end 15
+  opusclip edit-clip trim --project PROJECT_ID --clip CLIP_ID --start 0 --end 15
   #
   # Power-user round-trip — fetch, edit locally, send back:
-  opusclip editing-script --project PROJECT_ID --clip CLIP_ID --output script.json
+  opusclip edit-clip get --project PROJECT_ID --clip CLIP_ID --output script.json
   # ...edit script.json...
-  opusclip re-render --project PROJECT_ID --clip CLIP_ID --script script.json
+  opusclip edit-clip apply --project PROJECT_ID --clip CLIP_ID --script script.json
 
   # Upload a local video and clip it
   opusclip upload --file video.mp4 --title "My Video" --durations "30,60"
@@ -1294,12 +1313,8 @@ main() {
     storyboard)     cmd_storyboard "$@" ;;
     trim)           cmd_trim "$@" ;;
 
-    # Server-side EditingScript round-trip (API, re-renders, charged)
-    editing-script) cmd_editing_script "$@" ;;
-    re-render)      cmd_re_render "$@" ;;
-    caption-fix)    cmd_caption_fix "$@" ;;
-    caption-replace) cmd_caption_replace "$@" ;;
-    trim-render)    cmd_trim_render "$@" ;;
+    # Server-side editing (re-renders the clip; charged)
+    edit-clip)      cmd_edit_clip "$@" ;;
 
     # Aliases (backwards compat)
     create-project) cmd_create_project "$@" ;;
