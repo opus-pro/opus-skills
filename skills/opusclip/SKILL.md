@@ -136,6 +136,12 @@ Collections can be exported (download links) but cannot be shared publicly. To s
 
 > **BETA — features and pricing are subject to change. API pricing may diverge from web pricing.**
 
+> **Workflow guidance**
+>
+> Before running more than 3 edit-clip operations on a single clip in one session, ask the user to confirm — these may incur charges that don't match the web UX.
+>
+> Never run edit-clip or post schedule in a loop without user confirmation each iteration.
+
 Server-side edits to an existing clip. All sub-verbs except `get` re-render the clip (charged, beta caps apply). The CLI does the EditingScript walking client-side; the API is a generic passthrough that mirrors the web editor's Save action. See `references/editing-script.md` for the mutation paths and recipes.
 
 ```bash
@@ -146,6 +152,10 @@ opusclip edit-clip caption-replace --project PID --clip CID --transcript FILE
 opusclip edit-clip censor          --project PID --clip CID [--beep]
 opusclip edit-clip trim            --project PID --clip CID --start S --end E
 ```
+
+> **`edit-clip apply` guidance**
+>
+> `edit-clip apply` is an escape hatch. Prefer named sub-verbs (`caption-fix`, `caption-replace`, `censor`, `trim`) where they cover the user's intent. Only reach for `apply` when no sub-verb fits.
 
 All sub-verbs return `{jobId}` (or `{message, matchCount: 0}` when nothing matched). Poll status via `opusclip describe --project PID --clip CID` — `renderAsVideoFile.pending` flips false when the new render is ready and `uriForExport` then points at the new mp4.
 
@@ -221,6 +231,12 @@ opusclip trim --project PROJECT_ID --clip CLIP_ID --start 3 --end 50 --output tr
 ### post
 
 > **BETA — features and pricing are subject to change. API pricing may diverge from web pricing.** Applies to `post publish` and `post schedule`.
+
+> **Workflow guidance**
+>
+> Before scheduling more than 5 posts in one session, ask the user to confirm — scheduled posts may begin to incur per-post charges.
+>
+> Never run edit-clip or post schedule in a loop without user confirmation each iteration.
 
 Manage social posting — publish clips to YouTube, TikTok, Facebook, Instagram, LinkedIn, and X.
 
