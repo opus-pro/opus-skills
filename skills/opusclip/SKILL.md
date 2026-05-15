@@ -7,6 +7,8 @@ description: Turn long-form videos into short clips and post them to social plat
 
 Turn long-form videos into short clips via the OpusClip API.
 
+> **BETA — features and pricing are subject to change. API pricing may diverge from web pricing.**
+
 ## Prerequisites
 
 - `OPUSCLIP_API_KEY` must be set. If the user already has an Enterprise or Pro plan, they can copy their key from https://clip.opus.pro/dashboard. Otherwise, direct them to the [pricing page](https://www.opus.pro/pricing?utm_source=cli&utm_medium=opus) — API access requires Enterprise or Pro.
@@ -22,19 +24,20 @@ opusclip list --project ID [--summary]        List clips (alias: get-clips)
 opusclip describe --project ID --clip CID     Get clip details (transcript, layout info)
 opusclip storyboard --project ID --clip CID   Generate 2x2 frame preview (requires ffmpeg)
 opusclip trim --project ID --clip CID --start S --end E    Local ffmpeg trim (no API call, no captions)
-opusclip edit-clip <sub> [flags]              Server-side clip edits (charged, re-renders the clip)
-  get             Fetch EditingScript JSON for round-trip edits
-  apply           Submit an edited EditingScript directly
-  caption-fix     Replace caption text (--find X --replace Y)
-  caption-replace Replace caption track from a transcript file (--transcript FILE)
-  censor          Profanity censor (dictionary-based; --beep adds sound effect)
-  trim            Server-side trim (--start S --end E; shrink only)
+opusclip edit-clip <sub> [flags]              Server-side clip edits (charged, re-renders the clip) (beta — pricing may change)
+  get             Fetch EditingScript JSON for round-trip edits (beta — pricing may change)
+  apply           Submit an edited EditingScript directly (beta — pricing may change)
+  caption-fix     Replace caption text (--find X --replace Y) (beta — pricing may change)
+  caption-replace Replace caption track from a transcript file (--transcript FILE) (beta — pricing may change)
+  censor          Profanity censor (dictionary-based; --beep adds sound effect) (beta — pricing may change)
+  trim            Server-side trim (--start S --end E; shrink only) (beta — pricing may change)
 opusclip preview --project ID [--output PATH] Generate HTML preview and open in browser
 opusclip share --project ID                   Share project (alias: share-project)
 opusclip templates                            List brand templates
 opusclip upload --file PATH [options]         Upload local video + create project
 opusclip collections <sub> [options]          Manage collections
 opusclip post <sub> [options]                 Social posting (publish, schedule, generate copy)
+  schedule        Schedule a post for future publishing (beta — pricing may change)
 ```
 
 ### submit
@@ -131,6 +134,8 @@ Collections can be exported (download links) but cannot be shared publicly. To s
 
 ### edit-clip
 
+> **BETA — features and pricing are subject to change. API pricing may diverge from web pricing.**
+
 Server-side edits to an existing clip. All sub-verbs except `get` re-render the clip (charged, beta caps apply). The CLI does the EditingScript walking client-side; the API is a generic passthrough that mirrors the web editor's Save action. See `references/editing-script.md` for the mutation paths and recipes.
 
 ```bash
@@ -215,6 +220,8 @@ opusclip trim --project PROJECT_ID --clip CLIP_ID --start 3 --end 50 --output tr
 
 ### post
 
+> **BETA — features and pricing are subject to change. API pricing may diverge from web pricing.** Applies to `post publish` and `post schedule`.
+
 Manage social posting — publish clips to YouTube, TikTok, Facebook, Instagram, LinkedIn, and X.
 
 ```bash
@@ -232,7 +239,7 @@ opusclip post cancel --schedule SCHEDULE_ID
 | `generate-copy` | Generate AI-optimized post copy for a clip |
 | `copy-status` | Poll for generated copy result |
 | `publish` | Publish a clip immediately |
-| `schedule` | Schedule a clip for future publishing |
+| `schedule` | Schedule a clip for future publishing (beta — pricing may change) |
 | `cancel` | Cancel a scheduled post |
 
 Supported platforms: YouTube, TikTok Business, Facebook Page, Instagram Business, LinkedIn, X (Twitter). "Twitter" refers to X — the platform identifier is TWITTER. Each X post costs 1 credit.
