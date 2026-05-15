@@ -2,6 +2,8 @@
 
 A skill marketplace for [OpusClip](https://opus.pro) — adds video clipping, social posting, and more to your AI coding agent. Ships a `SKILL.md` the model auto-invokes when the prompt looks OpusClip-shaped (e.g. "clip this video"), backed by a bundled bash CLI that drives the OpusClip REST API.
 
+> **BETA — features and pricing are subject to change. API pricing may diverge from web pricing.**
+
 ## Install
 
 **Install this skill: <https://github.com/opus-pro/opus-skills>**
