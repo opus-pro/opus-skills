@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.2.6 — copyright hint before submit
+
+SKILL.md now instructs the agent to narrate the OpusClip web app's copyright disclaimer verbatim immediately before `opusclip submit` / `opusclip upload`:
+
+> Using video you don't own may violate copyright laws. By continuing, you confirm this is your own original content.
+
+Mirrors `copyright_hint` from `clip-web`'s `SubmitPanel` (`clip-apps/apps/clip-web/public/locales/en/clip.json:65`). Hint, not blocker — no `AskUserQuestion`, no `PreToolUse` hook gating the submit. Tracks opus-skills-eval case 43; escalation to a hard hook is reserved if narration compliance proves insufficient in future eval walks.
+
+CLI script content unchanged, so the eval's version-bump gate is not triggered by this release; the bump is for the SKILL.md behavior change and to keep plugin/marketplace manifests aligned with eval "Tested on" rows.
+
 ## 2.2.5 — edit-clip eval follow-ups (BUG-4 + BUG-5)
 
 Two skill-side bugs surfaced by the v2.2.4 live eval (opus-skills-eval `evals/results/2026-05-15-v2.2.4-edit-pipeline.json`):

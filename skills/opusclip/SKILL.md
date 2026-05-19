@@ -44,6 +44,14 @@ opusclip post <sub> [options]                 Social posting (publish, schedule,
 
 Alias: `create-project`
 
+> **Copyright hint**
+>
+> Immediately before calling `opusclip submit` or `opusclip upload`, narrate the following sentence to the user as a plain notice (not an `AskUserQuestion`, not a yes/no gate):
+>
+> > Using video you don't own may violate copyright laws. By continuing, you confirm this is your own original content.
+>
+> This mirrors the inline disclaimer the OpusClip web app shows on its submit panel. Show it verbatim on every submit/upload; do not block on a confirmation.
+
 ```bash
 opusclip submit --url "https://youtube.com/watch?v=..." --durations "30,60,90" [more options]
 ```
