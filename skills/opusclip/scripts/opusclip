@@ -350,6 +350,150 @@ cmd_upload() {
   cmd_create_project "${args[@]}"
 }
 
+# ── Thumbnail (experimental — 7 credits/call) ───────────────────────────────
+
+# Upload one local image via the FreeToolMedia upload-link flow.
+# The service uses GCS resumable for this usecase (same 2-step handshake as cmd_upload
+# for video), despite the AGE-191 ticket assuming a simpler `write` PUT. Echoes cdnUrl.
+upload_image() {
+  local file="$1"
+  [[ -f "$file" ]] || die "thumbnail: image file '$file' not found"
+  local ext="${file##*.}"
+  [[ -n "$ext" && "$ext" != "$file" ]] || ext="png"
+
+  local resp gcs_url cdn_url
+  resp=$(api_post "$API_BASE/upload-links" \
+    "$(jq -n --arg ext "$ext" '{usecase:"FreeToolMedia", type:"Upload", extension:$ext}')")
+  gcs_url=$(echo "$resp" | jq -r '.url // empty')
+  cdn_url=$(echo "$resp" | jq -r '.cdnUrl // empty')
+  [[ -n "$gcs_url" && -n "$cdn_url" ]] || die "thumbnail: upload-link response missing url/cdnUrl. Response: $resp"
+
+  local session_url
+  session_url=$(curl -sS -D - -o /dev/null -X POST "$gcs_url" \
+    -H "x-goog-resumable: start" \
+    -H "Content-Length: 0" | grep -i "^location:" | tr -d '\r' | sed 's/^[Ll]ocation: //')
+  [[ -n "$session_url" ]] || die "thumbnail: failed to start resumable session"
+
+  curl -sS -X PUT "$session_url" \
+    -H "Content-Type: application/octet-stream" \
+    --data-binary "@$file" > /dev/null
+
+  echo "$cdn_url"
+}
+
+cmd_thumbnail() {
+  local source_url="" reference="" mask="" prompt="" output_dir=""
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --url)        source_url="$2"; shift 2 ;;
+      --reference)  reference="$2"; shift 2 ;;
+      --mask)       mask="$2"; shift 2 ;;
+      --prompt)     prompt="$2"; shift 2 ;;
+      --output)     output_dir="$2"; shift 2 ;;
+      *) die "thumbnail: unknown flag '$1'" ;;
+    esac
+  done
+
+  [[ -n "$source_url" ]] || die "thumbnail: --url is required"
+
+  local reference_uri="" mask_uri=""
+  if [[ -n "$reference" ]]; then
+    echo "Uploading reference image..." >&2
+    reference_uri=$(upload_image "$reference")
+  fi
+  if [[ -n "$mask" ]]; then
+    echo "Uploading mask image..." >&2
+    mask_uri=$(upload_image "$mask")
+  fi
+
+  local body
+  body=$(jq -n \
+    --arg src "$source_url" \
+    --arg ref "$reference_uri" \
+    --arg msk "$mask_uri" \
+    --arg pmt "$prompt" \
+    '{jobType:"thumbnail", sourceUri:$src}
+     + (if $ref != "" then {referenceImageUri:$ref} else {} end)
+     + (if $msk != "" then {maskImageUri:$msk} else {} end)
+     + (if $pmt != "" then {prompt:$pmt} else {} end)')
+
+  echo "Submitting thumbnail job..." >&2
+  # Inline curl (not api_post) so we can capture HTTP status for friendly 403/429/503.
+  local raw status response
+  raw=$(curl -sS -X POST "$API_BASE/generative-jobs" \
+    -H "Authorization: Bearer $(api_key)" \
+    -H "Content-Type: application/json" \
+    -H "Accept: application/json" \
+    ${EXTRA_HEADER_FLAGS[@]+"${EXTRA_HEADER_FLAGS[@]}"} \
+    -d "$body" \
+    -w '\n%{http_code}')
+  status="${raw##*$'\n'}"
+  response="${raw%$'\n'*}"
+
+  case "$status" in
+    2*) ;;
+    403) die "thumbnail: access denied (403). This API is Pro/Enterprise only, or the thumbnail jobType is not exposed for your account. $(echo "$response" | jq -r '.message // .error // ""' 2>/dev/null)" ;;
+    429) die "thumbnail: rate limit / quota exceeded (429). $(echo "$response" | jq -r '.message // .error // "Retry later."' 2>/dev/null)" ;;
+    503) die "thumbnail API temporarily unavailable (503). It may be disabled while in experimental status. Try again later." ;;
+    *)   die "thumbnail: submit failed (HTTP $status): $response" ;;
+  esac
+
+  local job_id
+  job_id=$(echo "$response" | jq -r '.jobId // empty')
+  [[ -n "$job_id" ]] || die "thumbnail: no jobId in response: $response"
+  echo "Job submitted: $job_id" >&2
+
+  # Poll until CONCLUDED. 5s interval matches AGE-191 spec.
+  local attempt=0 result_json status_value progress
+  while :; do
+    attempt=$((attempt + 1))
+    result_json=$(api_get "$API_BASE/generative-jobs/$job_id")
+    status_value=$(echo "$result_json" | jq -r '.status // empty')
+    case "$status_value" in
+      CONCLUDED) break ;;
+      FAILED|ERROR|ERRORED|CANCELED)
+        die "thumbnail job $job_id ended in $status_value: $(echo "$result_json" | jq -r '.error // .message // "no detail"')" ;;
+      *)
+        progress=$(echo "$result_json" | jq -r '.progress // empty')
+        if [[ -n "$progress" && "$progress" != "null" ]]; then
+          echo "  [$attempt] ${status_value:-pending} (${progress}%)..." >&2
+        else
+          echo "  [$attempt] ${status_value:-pending}..." >&2
+        fi
+        sleep 5 ;;
+    esac
+  done
+
+  output_dir="${output_dir:-/tmp/opusclip-thumbnails-$job_id}"
+  mkdir -p "$output_dir"
+
+  local count=0 uris
+  uris=$(echo "$result_json" | jq -r '.result.generatedThumbnailUris[]? // empty')
+  [[ -n "$uris" ]] || die "thumbnail: job concluded but no generatedThumbnailUris in result: $result_json"
+
+  while IFS= read -r uri; do
+    [[ -z "$uri" ]] && continue
+    count=$((count + 1))
+    local out="$output_dir/thumbnail-$count.png"
+    echo "  Downloading $count: $out" >&2
+    curl -sS "$uri" -o "$out"
+  done <<< "$uris"
+
+  echo "Done — $count thumbnail(s) saved to $output_dir" >&2
+
+  if [[ "$(uname)" == "Darwin" ]] && command -v open >/dev/null 2>&1; then
+    open "$output_dir" 2>/dev/null || true
+  fi
+
+  jq -n \
+    --arg job_id "$job_id" \
+    --arg dir "$output_dir" \
+    --argjson count "$count" \
+    --argjson uris "$(echo "$result_json" | jq '.result.generatedThumbnailUris // []')" \
+    '{job_id: $job_id, count: $count, output_dir: $dir, thumbnail_uris: $uris}'
+}
+
 # ── Collections ──────────────────────────────────────────────────────────────
 
 cmd_collections() {
@@ -1351,6 +1495,7 @@ COMMANDS
   share             Update project visibility (alias: share-project)
   templates         List available brand templates
   upload            Upload a local video file and create a clip project
+  thumbnail         Generate YouTube thumbnails from a video (experimental, 7 credits/call)
   collections       Manage collections (list|create|delete|export|add-clip|remove-clip)
   post              Social posting (accounts|generate-copy|copy-status|publish|schedule|cancel)
   help              Show this help message
@@ -1418,6 +1563,12 @@ EXAMPLES
   opusclip edit-clip censor --project PROJECT_ID --clip CLIP_ID --beep
   # status via 'opusclip describe' (renderAsVideoFile.pending flips false when ready)
 
+  # Generate YouTube thumbnails from a video (experimental — 7 credits/call)
+  opusclip thumbnail --url "https://youtube.com/watch?v=..."
+  # With a reference image + prompt:
+  opusclip thumbnail --url "https://youtube.com/watch?v=..." \\
+    --reference ./face.png --prompt "bold red text 'EPIC'" --output ./thumbs/
+
   # Social posting — list accounts, publish, schedule
   opusclip post accounts
   opusclip post generate-copy --project PID --clip CID --account AID --prompt "witty tone"
@@ -1467,6 +1618,7 @@ main() {
     preview)        cmd_preview "$@" ;;
     templates)      cmd_templates "$@" ;;
     upload)         cmd_upload "$@" ;;
+    thumbnail)      cmd_thumbnail "$@" ;;
     collections)    cmd_collections "$@" ;;
     post)           cmd_post "$@" ;;
     help|--help|-h) usage ;;

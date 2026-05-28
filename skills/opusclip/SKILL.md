@@ -35,6 +35,7 @@ opusclip preview --project ID [--output PATH] Generate HTML preview and open in 
 opusclip share --project ID                   Share project (alias: share-project)
 opusclip templates                            List brand templates
 opusclip upload --file PATH [options]         Upload local video + create project
+opusclip thumbnail --url URL [options]        Generate YouTube thumbnails (experimental, 7 credits/call)
 opusclip collections <sub> [options]          Manage collections
 opusclip post <sub> [options]                 Social posting (publish, schedule, generate copy)
   schedule        Schedule a post for future publishing (beta — pricing may change)
@@ -270,6 +271,34 @@ Supported platforms: YouTube, TikTok Business, Facebook Page, Instagram Business
 
 When the user doesn't specify a post title, use the clip's title from the `list --summary` output.
 
+### thumbnail
+
+> **EXPERIMENTAL — features and pricing are subject to change. Daily caps apply. The endpoint may be temporarily disabled while in experimental status.**
+
+Generate AI-designed YouTube thumbnails from a source video. Each call costs **7 credits** and dispatches a thumbnail job; results are downloaded automatically on completion.
+
+```bash
+opusclip thumbnail --url "https://youtube.com/watch?v=..."
+opusclip thumbnail --url URL --reference ./face.png --prompt "bold red text 'EPIC'" --output ./thumbs/
+```
+
+| Flag | Description |
+|------|-------------|
+| `--url` | (required) Source video URL — same sources as `submit` (`sourceUri`). |
+| `--reference` | Optional local image to reference (face, brand asset). Uploaded via `/upload-links` `usecase: FreeToolMedia`. |
+| `--mask` | Optional local image used as a mask. Same upload flow. |
+| `--prompt` | Optional text prompt steering the design (style, copy). |
+| `--output` | Output directory for downloaded PNGs (default: `/tmp/opusclip-thumbnails-{jobId}/`). |
+
+The command POSTs to `/generative-jobs` with `jobType: thumbnail`, polls `GET /generative-jobs/{jobId}` every 5s, and downloads each `result.generatedThumbnailUris[]` into the output directory (opens it automatically on macOS).
+
+Error codes:
+- `403` — not on Pro/Enterprise, or the thumbnail jobType isn't exposed for your account.
+- `429` — daily cap or 30 req/min rate limit hit (`Retry-After` may be present).
+- `503` — the endpoint is temporarily disabled (kill switch). Try again later.
+
+The endpoint is governed by a kill switch (`pro_api_generative_jobs_enabled`); a 503 means the capability is paused, not that something is wrong with your call.
+
 ## Common Workflows
 
 ### Clip a YouTube video
@@ -364,6 +393,7 @@ opusclip post publish --project PROJECT_ID --clip CLIP_ID --account ACCOUNT_ID -
 - Max concurrent: 50 projects
 - Projects expire after 30 days
 - 1 credit = 1 minute of video
+- Thumbnail API: 7 credits/call, experimental, may be disabled without notice (503)
 
 ## API Reference
 
