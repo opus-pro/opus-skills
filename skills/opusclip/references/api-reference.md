@@ -14,6 +14,7 @@ Rate limit: 30 req/min. Max video: 10h / 30GB. Max concurrent: 50 projects.
 - [Collections](#collections)
 - [Collection Contents](#collection-contents)
 - [Censor Jobs](#censor-jobs)
+- [Thumbnail Generation](#thumbnail-generation)
 - [Social Posting](#social-posting)
 
 ---
@@ -205,6 +206,57 @@ Response (201): `{jobId, message}`
 **GET** `/censor-jobs/{jobId}`
 
 Response: `{status: "QUEUED"|"PROCESSING"|"CONCLUDED"|"FAILED"|"UNKNOWN", error?: string}`
+
+---
+
+## Thumbnail Generation
+
+> **EXPERIMENTAL — subject to change. Daily caps apply; contact support for higher limits. The endpoint may be temporarily disabled while in experimental status.**
+
+Generate AI-designed thumbnails from a source video. Rides the shared `/generative-jobs` endpoint — there is no dedicated `/thumbnails` path. Pro + Enterprise only.
+
+**Cost model.** Every API call is credit-charged. There is no free quota for API callers (free quota is a web free-tool concession; granting it to programmatic clients would let scripts farm free calls forever). The per-call credit amount comes from Statsig `growth-tool-quota-config.thumbnail.credit.amount` (code default fallback: 5; AGE-189 documents the intent as 7 — verify against the live Statsig value). Credits are frozen on submit and refunded internally if the workflow fails. Free/Starter callers receive `QuotaExceedErr`.
+
+### Create Thumbnail Job
+
+**POST** `/generative-jobs`
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `jobType` | string | yes | Must be `"thumbnail"`. |
+| `sourceUri` | string | yes | Source video URL (same sources as `Create Project`). |
+| `referenceImageUri` | string | no | CDN URL of a reference image (face, brand asset). Pre-upload via `/upload-links` with `usecase: 'FreeToolMedia'` (see below). |
+| `maskImageUri` | string | no | CDN URL of a mask image. Same upload flow. |
+| `prompt` | string | no | Text prompt steering the design (style, copy). |
+
+Response (201): `{jobId}`
+
+Response codes:
+- `403` — not Pro/Enterprise, or `thumbnail` jobType is not exposed for your account.
+- `429` — daily cap or 30 req/min rate limit hit. `Retry-After` header may be present.
+- `503` — the endpoint is temporarily disabled by the kill switch (`pro_api_generative_jobs_enabled`).
+
+### Poll Thumbnail Job
+
+**GET** `/generative-jobs/{jobId}`
+
+Response: `{status: "QUEUED"|"PROCESSING"|"CONCLUDED"|"FAILED"|"ERROR", progress?: number, result?: {generatedThumbnailUris: string[]}, error?: string}`
+
+When `status` is `CONCLUDED`, `result.generatedThumbnailUris[]` holds the download URLs (typically one or more PNGs).
+
+### Reference / Mask Image Upload
+
+Same `/upload-links` endpoint as `Upload Video`, different `usecase`:
+
+**POST** `/upload-links`
+
+```json
+{"usecase": "FreeToolMedia", "type": "Upload", "extension": "png"}
+```
+
+Response: `{url, cdnUrl, ...}`
+
+Then perform the resumable GCS handshake (POST `url` with `x-goog-resumable: start`, PUT bytes to the returned `Location` URL), and use the original `cdnUrl` as `referenceImageUri` / `maskImageUri` in the job body.
 
 ---
 
