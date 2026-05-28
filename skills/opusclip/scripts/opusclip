@@ -7,7 +7,7 @@ set -euo pipefail
 # Requires: curl, jq
 # Auth: Set OPUSCLIP_API_KEY environment variable
 
-VERSION="2.2.3"
+VERSION="2.2.7"
 API_BASE="${OPUSCLIP_API_URL:-https://api.opus.pro/api}"
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -957,7 +957,7 @@ cmd_trim() {
   [[ -n "$clip_id" ]]    || die "trim: --clip is required"
   [[ -n "$start_sec" ]]  || die "trim: --start is required"
   [[ -n "$end_sec" ]]    || die "trim: --end is required"
-  need ffmpeg "Install via 'brew install ffmpeg' (macOS) or your package manager. trim is local — no API call, just an ffmpeg cut. (For server-side trim with captions, use 'opusclip edit-clip trim' instead.)"
+  need ffmpeg "Install via 'brew install ffmpeg' (macOS) or your package manager. trim is local — no API call, just an ffmpeg cut. (For a server-side, captioned, brand-styled trim, fetch the script via 'opusclip edit-clip get', adapt a worked sample from references/editing-script.md, and submit via 'opusclip edit-clip apply'.)"
 
   local clips_json
   clips_json=$(api_get "$API_BASE/exportable-clips?q=findByProjectId&projectId=$project_id")
@@ -983,32 +983,36 @@ cmd_trim() {
 
 # ── Edit Clip (server-side re-render) ────────────────────────────────────
 #
-# One umbrella verb wraps every server-side edit a clip can take. Sub-verbs:
+# Three sub-verbs, all thin transport:
 #
-#   opusclip edit-clip get             fetch the clip's EditingScript JSON
-#   opusclip edit-clip apply           submit a fully-edited script back
-#   opusclip edit-clip caption-fix     find/replace caption text
-#   opusclip edit-clip caption-replace replace whole caption track from transcript
-#   opusclip edit-clip trim            server-side trim (shrink only)
+#   opusclip edit-clip get      fetch the clip's EditingScript JSON
+#   opusclip edit-clip apply    submit an edited script back for re-render
+#   opusclip edit-clip censor   profanity censor (server-side; calls a dedicated endpoint)
 #
-# All sub-verbs share the same underlying endpoints:
-#   GET  /api/exportable-clips/:clipFullId?include=editingScript
-#   POST /api/exportable-clips/:clipFullId/re-render
-# The wrapper does the EditingScript walking; the API stays a generic
-# passthrough. Future edit ops the web editor adds are reachable through
-# `edit-clip apply --script` without any new wrapper.
+# Endpoints:
+#   GET  /api/exportable-clips/:clipFullId?include=editingScript   (get)
+#   POST /api/exportable-clips/:clipFullId/re-render               (apply)
+#   POST /api/censor-jobs                                          (censor)
+#
+# This CLI does NOT construct EditingScripts. The caller is expected to
+# fetch the script via `get`, mutate it locally following the worked
+# samples in references/editing-script.md, and submit via `apply`.
+# Prior versions shipped `trim`, `caption-fix`, and `caption-replace`
+# sub-verbs that hand-rolled jq mutations against the EditingScript
+# shape; those drifted from the engine's contract and produced renders
+# that silently ignored the requested edit. Removed in 2.2.7.
 
 cmd_edit_clip() {
   local subcmd="${1:-}"; shift 2>/dev/null || true
   case "$subcmd" in
     get)             cmd_edit_clip_get "$@" ;;
     apply)           cmd_edit_clip_apply "$@" ;;
-    caption-fix)     cmd_edit_clip_caption_fix "$@" ;;
-    caption-replace) cmd_edit_clip_caption_replace "$@" ;;
     censor)          cmd_edit_clip_censor "$@" ;;
-    trim)            cmd_edit_clip_trim "$@" ;;
+    trim|caption-fix|caption-replace)
+      die "edit-clip $subcmd: removed in 2.2.7 — these verbs hand-rolled EditingScripts in the CLI and drifted from the engine's contract. Use 'edit-clip get' to fetch the current script, follow a worked sample in references/editing-script.md to construct the edited script, then 'edit-clip apply --script <file>' to submit. See CHANGELOG.md for the rationale."
+      ;;
     *)
-      die "edit-clip: unknown subcommand '$subcmd' (use get|apply|caption-fix|caption-replace|censor|trim)"
+      die "edit-clip: unknown subcommand '$subcmd' (use get|apply|censor)"
       ;;
   esac
 }
@@ -1063,226 +1067,6 @@ cmd_edit_clip_apply() {
   api_post "$API_BASE/exportable-clips/$project_id.$cid/re-render" "$body" | output
 }
 
-# Fix typos / phrasing: find/replace text across every caption TextElement.
-#
-# Caption tracks store each word as its own TextElement (so per-word timing
-# can drive the karaoke-style highlight). Two modes:
-#
-#   * single-word --find  → regex gsub on every textElement.text (back-compat;
-#     supports in-word matches like --find "haha" --replace "ha")
-#   * multi-word --find   → walk the textElements array, replace consecutive
-#     token sequences 1:1. --replace must have the same word count, since
-#     each replacement token inherits the matched slot's timing. For
-#     different-length rewrites, fall back to caption-replace / apply.
-cmd_edit_clip_caption_fix() {
-  local project_id="" clip_id="" find_text="" replace_text="" ignore_case="false"
-  while [[ $# -gt 0 ]]; do
-    case "$1" in
-      --project)     project_id="$2"; shift 2 ;;
-      --clip)        clip_id="$2"; shift 2 ;;
-      --find)        find_text="$2"; shift 2 ;;
-      --replace)     replace_text="$2"; shift 2 ;;
-      --ignore-case) ignore_case="true"; shift ;;
-      *) die "edit-clip caption-fix: unknown flag '$1'" ;;
-    esac
-  done
-  [[ -n "$project_id" ]]   || die "edit-clip caption-fix: --project is required"
-  [[ -n "$clip_id" ]]      || die "edit-clip caption-fix: --clip is required"
-  [[ -n "$find_text" ]]    || die "edit-clip caption-fix: --find is required"
-  [[ -n "$replace_text" ]] || die "edit-clip caption-fix: --replace is required"
-
-  local cid
-  cid=$(clip_suffix "$clip_id" "$project_id")
-  local script_resp
-  script_resp=$(api_get "$API_BASE/exportable-clips/$project_id.$cid?include=editingScript")
-
-  # Tokenize on whitespace runs to decide single- vs multi-word mode.
-  local find_tokens replace_tokens n_find n_repl
-  find_tokens=$(jq -nc --arg s "$find_text"    '$s | split("\\s+"; null) | map(select(. != ""))')
-  replace_tokens=$(jq -nc --arg s "$replace_text" '$s | split("\\s+"; null) | map(select(. != ""))')
-  n_find=$(jq -n --argjson t "$find_tokens"    '$t | length')
-  n_repl=$(jq -n --argjson t "$replace_tokens" '$t | length')
-
-  local edited match_count body
-
-  if [[ "$n_find" -le 1 ]]; then
-    # Single-token path: regex gsub on each textElement.text (back-compat).
-    local jq_flags='""'
-    [[ "$ignore_case" == "true" ]] && jq_flags='"i"'
-
-    # Count matches BEFORE replacement so we can short-circuit on zero (and
-    # avoid spending render credits on a no-op POST).
-    match_count=$(echo "$script_resp" | jq --arg find "$find_text" --argjson flags "$jq_flags" '
-      [.editingScript.tracks[]? | select(.trackType=="CaptionTrack")
-        | .sections[]?.segments[]?.content.textElements[]?.text
-        | select(test($find; $flags))] | length
-    ')
-
-    if [[ "$match_count" == "0" ]]; then
-      jq -nc --arg find "$find_text" --arg repl "$replace_text" \
-        '{message: "no caption text matched; nothing to re-render", find: $find, replace: $repl, matchCount: 0, mode: "single-token"}'
-      return 0
-    fi
-
-    edited=$(echo "$script_resp" | jq -c --arg find "$find_text" --arg repl "$replace_text" --argjson flags "$jq_flags" '
-      .editingScript
-      | (.tracks |= map(
-          if .trackType == "CaptionTrack" then
-            .sections |= map(.segments |= map(
-              .content.textElements |= map(.text |= gsub($find; $repl; $flags))
-            ))
-          else . end
-        ))
-    ')
-  else
-    # Multi-token path: walk consecutive textElements, replace 1:1.
-    [[ "$n_find" == "$n_repl" ]] || die \
-"edit-clip caption-fix: multi-word --find has $n_find tokens but --replace has $n_repl.
-Captions are stored per-word with per-token timing, so multi-word replacements must
-be 1:1. For a different-length rewrite use:
-  opusclip edit-clip caption-replace --project P --clip C --transcript <file>
-  opusclip edit-clip apply           --project P --clip C --script    <file>"
-
-    # Flatten every CaptionTrack's textElements into a single ordered list
-    # tagged with (ti, si, gi, ei) provenance, run sequence search on the flat
-    # list, then write the 1:1 replacements back to their original positions.
-    # This is the only way to match phrases that cross segment boundaries —
-    # caption segments are typically 1-5 tokens, so most natural multi-word
-    # finds (e.g. "Vault Dweller") will span at least one boundary.
-    local edited_full
-    edited_full=$(echo "$script_resp" | jq -c \
-      --argjson ft "$find_tokens" \
-      --argjson rt "$replace_tokens" \
-      --argjson ic "$(jq -n --argjson v "$([[ "$ignore_case" == "true" ]] && echo true || echo false)" '$v')" '
-      def flatten_caption_tokens:
-        [ range(0; (.tracks | length)) as $ti
-          | .tracks[$ti] as $t
-          | select($t.trackType == "CaptionTrack")
-          | range(0; ($t.sections | length)) as $si
-          | $t.sections[$si] as $sec
-          | range(0; ($sec.segments | length)) as $gi
-          | $sec.segments[$gi] as $seg
-          | range(0; ($seg.content.textElements | length)) as $ei
-          | { ti: $ti, si: $si, gi: $gi, ei: $ei,
-              text: $seg.content.textElements[$ei].text }
-        ];
-
-      def find_seq_starts($flat; $ft; $ic):
-        ($ft | length) as $n
-        | ($flat | length) as $len
-        | (if $ic then ($ft | map(ascii_downcase)) else $ft end) as $needle
-        | (if $len < $n then [] else
-            [range(0; $len - $n + 1)
-              | . as $i
-              | ([range(0; $n) as $j | $flat[$i + $j].text]
-                 | if $ic then map(ascii_downcase) else . end) as $window
-              | select($window == $needle)
-              | $i]
-          end) as $raw_starts
-        | (reduce $raw_starts[] as $i ({last: 0, hits: []};
-            if $i >= .last then .hits += [$i] | .last = $i + $n else . end)).hits;
-
-      .editingScript as $script
-      | ($script | flatten_caption_tokens) as $flat
-      | find_seq_starts($flat; $ft; $ic) as $starts
-      | ($starts | length) as $matched
-      | (reduce $starts[] as $i ($script;
-          reduce range(0; ($ft | length)) as $j (.;
-            $flat[$i + $j] as $loc
-            | .tracks[$loc.ti].sections[$loc.si].segments[$loc.gi].content.textElements[$loc.ei].text = $rt[$j]
-          ))) as $new_script
-      | {script: $new_script, matched: $matched}
-    ')
-    edited=$(echo "$edited_full" | jq -c '.script')
-    match_count=$(echo "$edited_full" | jq -r '.matched')
-
-    if [[ "$match_count" == "0" ]]; then
-      jq -nc --arg find "$find_text" --arg repl "$replace_text" \
-        '{message: "no caption text matched; nothing to re-render", find: $find, replace: $repl, matchCount: 0, mode: "multi-token"}'
-      return 0
-    fi
-  fi
-
-  body=$(jq -nc --argjson s "$edited" '{editingScript: $s}')
-  local mode_label
-  [[ "$n_find" -le 1 ]] && mode_label="single-token" || mode_label="multi-token"
-  # Only overlay metadata on success (`.jobId` present). Error bodies pass
-  # through unmodified so callers can distinguish actual failures.
-  api_post "$API_BASE/exportable-clips/$project_id.$cid/re-render" "$body" \
-    | jq --arg find "$find_text" --arg repl "$replace_text" --argjson matched "$match_count" --arg mode "$mode_label" '
-        if .jobId then
-          . + {find: $find, replace: $repl, matchCount: $matched, mode: $mode}
-        else . end
-      '
-}
-
-# Replace entire caption track from a transcript JSON file
-# File shape: { "segments": [{ "text": "...", "startMs": 0, "endMs": 1500,
-#                              "words"?: [{ "word": "...", "startMs": 0, "endMs": 500 }] }] }
-cmd_edit_clip_caption_replace() {
-  local project_id="" clip_id="" transcript_file=""
-  while [[ $# -gt 0 ]]; do
-    case "$1" in
-      --project)    project_id="$2"; shift 2 ;;
-      --clip)       clip_id="$2"; shift 2 ;;
-      --transcript) transcript_file="$2"; shift 2 ;;
-      *) die "edit-clip caption-replace: unknown flag '$1'" ;;
-    esac
-  done
-  [[ -n "$project_id" ]]       || die "edit-clip caption-replace: --project is required"
-  [[ -n "$clip_id" ]]          || die "edit-clip caption-replace: --clip is required"
-  [[ -n "$transcript_file" ]]  || die "edit-clip caption-replace: --transcript <file> is required"
-  [[ -f "$transcript_file" ]]  || die "edit-clip caption-replace: file '$transcript_file' not found"
-
-  local cid
-  cid=$(clip_suffix "$clip_id" "$project_id")
-  local script_resp
-  script_resp=$(api_get "$API_BASE/exportable-clips/$project_id.$cid?include=editingScript")
-
-  # Wholesale-replace the CaptionTrack: collapse to one section + one segment
-  # carrying every word from the transcript. Preserve the existing section
-  # timing so the clip duration doesn't change. Drop the other (now-orphan)
-  # sections — otherwise leftover textElements from those sections appear
-  # alongside the new transcript in the rendered output.
-  local edited
-  edited=$(jq -nc \
-    --argjson script "$script_resp" \
-    --slurpfile tr "$transcript_file" '
-      ($tr[0] // {}) as $t
-      | ($t.segments // []) as $segs
-      | ($segs | to_entries | map(
-          .key as $i | .value as $seg
-          | (($seg.words // [{word: $seg.text, startMs: $seg.startMs, endMs: $seg.endMs}])
-             | to_entries | map(
-              .key as $j | .value as $w
-              | {
-                  id: "caption-replace-\($i)-\($j)",
-                  text: $w.word,
-                  color: 0,
-                  duration: { type: "TS", sO: 0, eO: (($w.endMs // 0) - ($w.startMs // 0)) },
-                  timeline: { in: ($w.startMs // 0), out: ($w.endMs // 0) }
-                }
-            ))
-        ) | add // []) as $newElements
-      | $script.editingScript
-      | .tracks |= map(
-          if .trackType == "CaptionTrack" then
-            .sections = [
-              (.sections[0] // {sectionTimeline: {in: 0, out: 0}, sectionDuration: {type: "TS", sO: 0, eO: 0}})
-              | .segments = [{
-                  id: ((.segments[0].id) // "caption-replace-segment"),
-                  content: { textElements: $newElements }
-                }]
-            ]
-          else . end
-        )
-    ')
-
-  local body
-  body=$(jq -nc --argjson s "$edited" '{editingScript: $s}')
-  api_post "$API_BASE/exportable-clips/$project_id.$cid/re-render" "$body" | output
-}
-
 # Profanity censor: server-side dictionary-based caption mutation + beep audio.
 # Hits the existing /api/censor-jobs endpoint (predates the unified /re-render
 # primitive). Under the hood it does the same engine save-and-render call;
@@ -1305,78 +1089,6 @@ cmd_edit_clip_censor() {
   payload=$(jq -n --arg pid "$project_id" --arg cid "$clip_id" --argjson beep "$beep" \
     '{projectId: $pid, clipId: $cid, options: {beepSound: $beep}}')
   api_post "$API_BASE/censor-jobs" "$payload" | output
-}
-
-# Server-side trim: shrink the clip via re-render (charged; opposite of local `trim`)
-cmd_edit_clip_trim() {
-  local project_id="" clip_id="" start_ms="" end_ms=""
-  while [[ $# -gt 0 ]]; do
-    case "$1" in
-      --project)  project_id="$2"; shift 2 ;;
-      --clip)     clip_id="$2"; shift 2 ;;
-      --start-ms) start_ms="$2"; shift 2 ;;
-      --end-ms)   end_ms="$2"; shift 2 ;;
-      --start)    start_ms="$(awk -v v="$2" 'BEGIN{printf "%d", v*1000}')"; shift 2 ;;
-      --end)      end_ms="$(awk -v v="$2" 'BEGIN{printf "%d", v*1000}')"; shift 2 ;;
-      *) die "edit-clip trim: unknown flag '$1'" ;;
-    esac
-  done
-  [[ -n "$project_id" ]] || die "edit-clip trim: --project is required"
-  [[ -n "$clip_id" ]]    || die "edit-clip trim: --clip is required"
-  [[ -n "$start_ms" ]]   || die "edit-clip trim: --start (seconds) or --start-ms is required"
-  [[ -n "$end_ms" ]]     || die "edit-clip trim: --end (seconds) or --end-ms is required"
-  [[ "$end_ms" -gt "$start_ms" ]] || die "edit-clip trim: --end must be greater than --start"
-
-  # v1 ships shrink only. Extending past source duration is an engine no-op
-  # (the EditingScript sectionTimeline gets clamped silently, the re-render
-  # publishes the original mp4, and the caller is left wondering why nothing
-  # changed). Clamp --end to the actual durationMs so callers get a
-  # deterministic shrink — and surface the clamp in the response.
-  local cid
-  cid=$(clip_suffix "$clip_id" "$project_id")
-  local clip_meta
-  clip_meta=$(api_get "$API_BASE/exportable-clips?q=findByProjectId&projectId=$project_id")
-  local current_duration
-  current_duration=$(echo "$clip_meta" | jq -r --arg cid "$cid" '
-    .data[] | select(.curationId == $cid or .id == $cid) | .durationMs' | head -1)
-  local clamp_note=""
-  local requested_end_ms="$end_ms"
-  if [[ -n "$current_duration" && "$current_duration" != "null" && "$end_ms" -gt "$current_duration" ]]; then
-    clamp_note="--end ($requested_end_ms ms) > current clip duration ($current_duration ms); clamped to $current_duration ms"
-    echo "note: $clamp_note" >&2
-    end_ms="$current_duration"
-  fi
-  [[ "$end_ms" -gt "$start_ms" ]] || die "edit-clip trim: after clamp, --end ($end_ms) must be greater than --start ($start_ms)"
-
-  local script_resp
-  script_resp=$(api_get "$API_BASE/exportable-clips/$project_id.$cid?include=editingScript")
-
-  # For every timed track section, set sectionTimeline + sectionDuration to the new window.
-  local edited
-  edited=$(echo "$script_resp" | jq -c --argjson s "$start_ms" --argjson e "$end_ms" '
-    .editingScript
-    | .tracks |= map(
-        if ((.sections // []) | length) > 0 and (.sections[0].sectionTimeline // null) != null then
-          .sections[0].sectionTimeline.in  = $s
-          | .sections[0].sectionTimeline.out = $e
-          | .sections[0].sectionDuration.sO = $s
-          | .sections[0].sectionDuration.eO = $e
-        else . end
-      )
-  ')
-
-  local body
-  body=$(jq -nc --argjson s "$edited" '{editingScript: $s}')
-  # Only overlay trim metadata on success responses (those have `.jobId`).
-  # Error bodies (e.g. 4xx/5xx JSON) pass through unmodified — overlaying
-  # startMs/endMs/durationMs onto a 413 made past failures look half-successful.
-  api_post "$API_BASE/exportable-clips/$project_id.$cid/re-render" "$body" \
-    | jq --argjson s "$start_ms" --argjson e "$end_ms" --argjson req "$requested_end_ms" --arg note "$clamp_note" '
-        if .jobId then
-          . + {startMs: $s, endMs: $e, durationMs: ($e - $s)}
-            + (if $note != "" then {requestedEndMs: $req, clampedEndMs: $e, note: $note} else {} end)
-        else . end
-      '
 }
 
 # ── Preview ──────────────────────────────────────────────────────────────
@@ -1503,7 +1215,7 @@ COMMANDS
   storyboard        Generate 2x2 frame grid image (requires ffmpeg)
   trim              Trim a clip locally (requires ffmpeg, no API call)
   edit-clip         Server-side clip edits via re-render (charged):
-                    get | apply | caption-fix | caption-replace | censor | trim
+                    get | apply | censor
   preview           Generate HTML preview page and open in browser
   share             Update project visibility (alias: share-project)
   templates         List available brand templates
@@ -1540,22 +1252,13 @@ EXAMPLES
   # Trim a clip locally (ffmpeg, no API call)
   opusclip trim --project PROJECT_ID --clip CLIP_ID --start 5 --end 25
 
-  # Server-side edits (charged: re-render via API; see references/editing-script.md)
-  #
-  # Fix a typo in the captions:
-  opusclip edit-clip caption-fix --project PROJECT_ID --clip CLIP_ID \\
-    --find "prooduct" --replace "product"
-  #
-  # Replace the whole caption track from a transcript file:
-  opusclip edit-clip caption-replace --project PROJECT_ID --clip CLIP_ID \\
-    --transcript captions.json
-  #
-  # Trim and re-render (shrink only; extend is unverified at the engine):
-  opusclip edit-clip trim --project PROJECT_ID --clip CLIP_ID --start 0 --end 15
-  #
-  # Power-user round-trip — fetch, edit locally, send back:
+  # Server-side edits (charged: re-render via API).
+  # The CLI is thin transport — it does NOT construct EditingScripts. To trim,
+  # fix captions, or replace caption tracks: fetch the script, adapt a worked
+  # sample from references/editing-script.md, then submit. The agent does the
+  # construction; the CLI just transports.
   opusclip edit-clip get --project PROJECT_ID --clip CLIP_ID --output script.json
-  # ...edit script.json...
+  # ...edit script.json by adapting a sample from references/editing-script.md...
   opusclip edit-clip apply --project PROJECT_ID --clip CLIP_ID --script script.json
 
   # Upload a local video and clip it

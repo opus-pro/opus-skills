@@ -1,5 +1,26 @@
 # Changelog
 
+## 2.2.7 — edit-clip is now thin transport; agent owns EditingScript construction
+
+Three `edit-clip` sub-verbs are **removed**: `trim`, `caption-fix`, `caption-replace`. They hand-rolled `EditingScript` mutations in jq inside the CLI and drifted from the re-render API's contract — producing re-renders that silently ignored the requested edit (e.g. captions shifted to the new window but the underlying video/audio stayed pinned to the original clip). Users reported the trim case as not-actually-trimming the video; the same class of defect was latent in `caption-fix` and `caption-replace`.
+
+The reframe: the public CLI is not the right place for that algorithm to live. `EditingScript` construction is the API's contract; the CLI should be thin transport, and the agent that's reading SKILL.md should be the one constructing the script — from worked samples that show the right shape. That's now how it works.
+
+What stays in the CLI:
+
+- `edit-clip get` — fetches the clip's current `EditingScript` JSON.
+- `edit-clip apply --script <file>` — submits an edited script for re-render.
+- `edit-clip censor [--beep]` — calls a dedicated profanity-censor endpoint; the server does the script construction here.
+
+What moves to the agent (via `references/editing-script.md`):
+
+- Worked before/after samples for: typo fix in captions, trim/shrink a clip to a sub-window, replace the whole caption track from a transcript file.
+- An anatomy section explaining the two coordinate systems (source-media duration vs. clip-relative timeline) and how they relate. This is the part that's easy to get wrong, and reading it once is cheaper than debugging silent renders.
+
+What happens if you invoke a removed verb: the CLI dies immediately with a one-line message pointing at the get/apply round-trip and `references/editing-script.md`. No silent failure, no charged re-render.
+
+Out of scope: the dedicated profanity-censor endpoint is unchanged. Multi-section clips (from curated multi-clip projects) still need extra care during trim — the worked sample handles single-section clips, which is what the re-render API typically produces.
+
 ## 2.2.6 — copyright hint before submit
 
 SKILL.md now instructs the agent to narrate the OpusClip web app's copyright disclaimer verbatim immediately before `opusclip submit` / `opusclip upload`:
