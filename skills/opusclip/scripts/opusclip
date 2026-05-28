@@ -397,6 +397,14 @@ cmd_thumbnail() {
 
   [[ -n "$source_url" ]] || die "thumbnail: --url is required"
 
+  # Validate --output up front so a bad path doesn't burn credits + waste a job.
+  # (Without --output we use /tmp/opusclip-thumbnails-<jobId> later — /tmp is
+  # virtually always writable, so that's fine to create post-poll.)
+  if [[ -n "$output_dir" ]]; then
+    mkdir -p "$output_dir" || die "thumbnail: cannot create output directory '$output_dir'"
+    [[ -w "$output_dir" ]] || die "thumbnail: output directory '$output_dir' is not writable"
+  fi
+
   local reference_uri="" mask_uri=""
   if [[ -n "$reference" ]]; then
     echo "Uploading reference image..." >&2
@@ -477,7 +485,12 @@ cmd_thumbnail() {
     count=$((count + 1))
     local out="$output_dir/thumbnail-$count.png"
     echo "  Downloading $count: $out" >&2
-    curl -sS "$uri" -o "$out"
+    # `-f` makes curl exit non-zero on HTTP 4xx/5xx so an expired URL or CDN
+    # error doesn't silently leave the error body sitting in a .png file.
+    if ! curl -fsS "$uri" -o "$out"; then
+      rm -f "$out"
+      die "thumbnail: failed to download $uri to $out"
+    fi
   done <<< "$uris"
 
   echo "Done — $count thumbnail(s) saved to $output_dir" >&2
