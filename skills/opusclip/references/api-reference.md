@@ -213,7 +213,9 @@ Response: `{status: "QUEUED"|"PROCESSING"|"CONCLUDED"|"FAILED"|"UNKNOWN", error?
 
 > **EXPERIMENTAL — subject to change. Daily caps apply; contact support for higher limits. The endpoint may be temporarily disabled while in experimental status.**
 
-Generate AI-designed thumbnails from a source video. **7 credits per call.** Pro + Enterprise only. Rides the shared `/generative-jobs` endpoint — there is no dedicated `/thumbnails` path.
+Generate AI-designed thumbnails from a source video. Rides the shared `/generative-jobs` endpoint — there is no dedicated `/thumbnails` path.
+
+**Cost model.** Calls within the per-user daily cap (Statsig `growth-tool-quota-config.thumbnail.user.limitCount` / `windowSeconds`) are free. Once the daily cap is exhausted, additional calls consume credits from the org's pool — but only if the caller is Pro/Enterprise; Free users get `QuotaExceedErr` at that point. The per-overflow credit amount comes from `growth-tool-quota-config.thumbnail.credit.amount` (code default: 5; epic AGE-189 documents the intent as 7 — verify against the live Statsig value). Credits are frozen on submit and refunded internally if the workflow fails.
 
 ### Create Thumbnail Job
 

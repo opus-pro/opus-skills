@@ -350,7 +350,7 @@ cmd_upload() {
   cmd_create_project "${args[@]}"
 }
 
-# ── Thumbnail (experimental — 7 credits/call) ───────────────────────────────
+# ── Thumbnail (experimental; daily quota then credits on overflow) ──────────
 
 # Upload one local image via the FreeToolMedia upload-link flow.
 # The service uses GCS resumable for this usecase (same 2-step handshake as cmd_upload
@@ -1495,7 +1495,7 @@ COMMANDS
   share             Update project visibility (alias: share-project)
   templates         List available brand templates
   upload            Upload a local video file and create a clip project
-  thumbnail         Generate YouTube thumbnails from a video (experimental, 7 credits/call)
+  thumbnail         Generate YouTube thumbnails from a video (experimental; daily quota then credits)
   collections       Manage collections (list|create|delete|export|add-clip|remove-clip)
   post              Social posting (accounts|generate-copy|copy-status|publish|schedule|cancel)
   help              Show this help message
@@ -1563,7 +1563,7 @@ EXAMPLES
   opusclip edit-clip censor --project PROJECT_ID --clip CLIP_ID --beep
   # status via 'opusclip describe' (renderAsVideoFile.pending flips false when ready)
 
-  # Generate YouTube thumbnails from a video (experimental — 7 credits/call)
+  # Generate YouTube thumbnails from a video (experimental; daily cap then credits on overflow)
   opusclip thumbnail --url "https://youtube.com/watch?v=..."
   # With a reference image + prompt:
   opusclip thumbnail --url "https://youtube.com/watch?v=..." \\

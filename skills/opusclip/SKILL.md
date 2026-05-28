@@ -35,7 +35,7 @@ opusclip preview --project ID [--output PATH] Generate HTML preview and open in 
 opusclip share --project ID                   Share project (alias: share-project)
 opusclip templates                            List brand templates
 opusclip upload --file PATH [options]         Upload local video + create project
-opusclip thumbnail --url URL [options]        Generate YouTube thumbnails (experimental, 7 credits/call)
+opusclip thumbnail --url URL [options]        Generate YouTube thumbnails (experimental; daily cap then credits on overflow)
 opusclip collections <sub> [options]          Manage collections
 opusclip post <sub> [options]                 Social posting (publish, schedule, generate copy)
   schedule        Schedule a post for future publishing (beta — pricing may change)
@@ -275,7 +275,9 @@ When the user doesn't specify a post title, use the clip's title from the `list 
 
 > **EXPERIMENTAL — features and pricing are subject to change. Daily caps apply. The endpoint may be temporarily disabled while in experimental status.**
 
-Generate AI-designed YouTube thumbnails from a source video. Each call costs **7 credits** and dispatches a thumbnail job; results are downloaded automatically on completion.
+Generate AI-designed YouTube thumbnails from a source video. Results are downloaded automatically on completion.
+
+**Cost:** Free up to the per-user daily cap (configured in Statsig `growth-tool-quota-config`, typically a few calls/day). Once the daily cap is exhausted, additional calls draw from the org's credit pool — but only for Pro/Enterprise; Free users get a quota-exceeded error at that point. The per-overflow credit amount is also configured in Statsig (`thumbnail.credit.amount`); the code default fallback is 5. Verify the live values against Statsig before making strong cost claims to the user.
 
 ```bash
 opusclip thumbnail --url "https://youtube.com/watch?v=..."
@@ -393,7 +395,7 @@ opusclip post publish --project PROJECT_ID --clip CLIP_ID --account ACCOUNT_ID -
 - Max concurrent: 50 projects
 - Projects expire after 30 days
 - 1 credit = 1 minute of video
-- Thumbnail API: 7 credits/call, experimental, may be disabled without notice (503)
+- Thumbnail API: free up to per-user daily cap, then credits on overflow (Pro/Enterprise only); experimental, may be disabled without notice (503)
 
 ## API Reference
 
