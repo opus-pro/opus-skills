@@ -27,10 +27,7 @@ opusclip trim --project ID --clip CID --start S --end E    Local ffmpeg trim (no
 opusclip edit-clip <sub> [flags]              Server-side clip edits (charged, re-renders the clip) (beta — pricing may change)
   get             Fetch EditingScript JSON for round-trip edits (beta — pricing may change)
   apply           Submit an edited EditingScript directly (beta — pricing may change)
-  caption-fix     Replace caption text (--find X --replace Y) (beta — pricing may change)
-  caption-replace Replace caption track from a transcript file (--transcript FILE) (beta — pricing may change)
   censor          Profanity censor (dictionary-based; --beep adds sound effect) (beta — pricing may change)
-  trim            Server-side trim (--start S --end E; shrink only) (beta — pricing may change)
 opusclip preview --project ID [--output PATH] Generate HTML preview and open in browser
 opusclip share --project ID                   Share project (alias: share-project)
 opusclip templates                            List brand templates
@@ -151,28 +148,28 @@ Collections can be exported (download links) but cannot be shared publicly. To s
 >
 > Never run edit-clip or post schedule in a loop without user confirmation each iteration.
 
-Server-side edits to an existing clip. All sub-verbs except `get` re-render the clip (charged, beta caps apply). The CLI does the EditingScript walking client-side; the API is a generic passthrough that mirrors the web editor's Save action. See `references/editing-script.md` for the mutation paths and recipes.
+Server-side edits to an existing clip. `apply` re-renders the clip (charged, beta caps apply); `censor` calls a dedicated endpoint and also re-renders; `get` is read-only.
 
 ```bash
-opusclip edit-clip get             --project PID --clip CID [--output FILE]
-opusclip edit-clip apply           --project PID --clip CID --script FILE
-opusclip edit-clip caption-fix     --project PID --clip CID --find X --replace Y [--ignore-case]
-opusclip edit-clip caption-replace --project PID --clip CID --transcript FILE
-opusclip edit-clip censor          --project PID --clip CID [--beep]
-opusclip edit-clip trim            --project PID --clip CID --start S --end E
+opusclip edit-clip get     --project PID --clip CID [--output FILE]
+opusclip edit-clip apply   --project PID --clip CID --script FILE
+opusclip edit-clip censor  --project PID --clip CID [--beep]
 ```
 
-> **`edit-clip apply` guidance**
+The CLI is thin transport — it does not construct EditingScripts. For any edit beyond profanity censoring (trim, caption typo fix, caption-track replacement, layout change, etc.), the agent owns the construction:
+
+1. `opusclip edit-clip get --project PID --clip CID --output current.json` to fetch the clip's current EditingScript.
+2. Open `references/editing-script.md` and read the worked sample closest to the requested edit. Each sample shows a before / after EditingScript fragment with notes on which fields move.
+3. Construct the edited script (with `jq`, the `Edit` tool, or any other editor — whatever the agent has at hand).
+4. `opusclip edit-clip apply --project PID --clip CID --script edited.json` to submit.
+
+> **What happened to `caption-fix`, `caption-replace`, `trim`?**
 >
-> `edit-clip apply` is an escape hatch. Prefer named sub-verbs (`caption-fix`, `caption-replace`, `censor`, `trim`) where they cover the user's intent. Only reach for `apply` when no sub-verb fits.
+> These sub-verbs existed through v2.2.6 but were removed in v2.2.7 — they hand-rolled EditingScript mutations inside the CLI and drifted from the engine's contract, producing re-renders that silently ignored the requested edit (captions shifted, but the underlying video/audio didn't). Worked samples in `references/editing-script.md` now cover each of these operations; pair them with `get` + `apply`.
 
-All sub-verbs return `{jobId}` (or `{message, matchCount: 0}` when nothing matched). Poll status via `opusclip describe --project PID --clip CID` — `renderAsVideoFile.pending` flips false when the new render is ready and `uriForExport` then points at the new mp4.
+Both `apply` and `censor` return `{jobId}`. Poll status via `opusclip describe --project PID --clip CID` — `renderAsVideoFile.pending` flips false when the new render is ready and `uriForExport` then points at the new mp4.
 
-`caption-fix` notes:
-- **Single-word `--find`** is a regex `gsub` over every caption textElement's `.text` (so it matches inside words too: `--find "haha" --replace "ha"`).
-- **Multi-word `--find`** walks consecutive textElements and replaces them 1:1 — `--replace` must have the same word count (`"2 lonely"` → `"Two lonely"` works, `"2"` → `"Two and"` does not). For different-length rewrites use `caption-replace` (whole transcript) or `apply` (custom EditingScript).
-
-`edit-clip trim` is the server-side, captioned, brand-styled version. The top-level `opusclip trim` is the local-ffmpeg fast path on the preview mp4 (free, instant, no captions). Use whichever fits the situation. `edit-clip trim` clamps `--end` to the clip's current `durationMs` (the engine no-ops on extends); the response includes `clampedEndMs` and a `note` when the clamp triggers.
+The top-level `opusclip trim` (local ffmpeg) is unchanged — fast cut on the preview mp4, no captions, no API call. Use it for quick, no-captions clips; use `edit-clip get` + `apply` when captions and brand styling need to ride along.
 
 ### describe
 
@@ -374,7 +371,7 @@ opusclip post cancel --schedule SCHEDULE_ID
 ### Edit a clip, then post
 
 ```bash
-# Server-side edit (censor / caption-fix / caption-replace / trim / apply)
+# Server-side edit (censor, or apply with an edited script you built from references/editing-script.md)
 opusclip edit-clip censor --project PROJECT_ID --clip CLIP_ID --beep
 
 # Wait for the re-render
