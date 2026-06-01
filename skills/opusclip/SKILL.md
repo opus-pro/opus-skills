@@ -12,7 +12,7 @@ Turn long-form videos into short clips via the OpusClip API.
 ## Prerequisites
 
 - `OPUSCLIP_API_KEY` must be set. If the user already has an Enterprise or Pro plan, they can copy their key from https://clip.opus.pro/dashboard. Otherwise, direct them to the [pricing page](https://www.opus.pro/pricing?utm_source=cli&utm_medium=opus) — API access requires Enterprise or Pro.
-- The CLI at `scripts/opusclip` requires `curl` and `jq`
+- The CLI at `scripts/opusclip` requires Node.js (>=18) — it is a bundled JS file
 
 ## CLI Quick Reference
 
@@ -21,7 +21,9 @@ Run the bundled CLI at `scripts/opusclip`. All commands output JSON.
 ```
 opusclip submit --url URL [options]           Submit video for clipping (alias: create-project)
 opusclip list --project ID [--summary]        List clips (alias: get-clips)
+opusclip list-projects [--page N]             List the org's clip projects (most recent first)
 opusclip describe --project ID --clip CID     Get clip details (transcript, layout info)
+opusclip transcript --project ID              Get the source-video transcript (paragraphs + word timing in ms)
 opusclip storyboard --project ID --clip CID   Generate 2x2 frame preview (requires ffmpeg)
 opusclip trim --project ID --clip CID --start S --end E    Local ffmpeg trim (no API call, no captions)
 opusclip edit-clip <sub> [flags]              Server-side clip edits (charged, re-renders the clip) (beta — pricing may change)
@@ -89,11 +91,41 @@ opusclip list --collection COLLECTION_ID
 |------|-------------|
 | `--project` | Project ID to fetch clips for |
 | `--collection` | Collection ID to fetch clips for |
-| `--summary` | Output condensed JSON with title, description, hashtags, scores, duration, and preview/export URLs (instead of full raw response) |
+| `--summary` | Deprecated no-op (kept for back-compat) — scored/human-readable fields are always included now |
 
-When presenting clips to the user, always use `--summary` to get human-readable fields (title, description, hashtags, scores). Display clips with their title and description rather than just clip IDs.
+Clips already include human-readable fields (title, description, hashtags, scores) by default. Display clips with their title and description rather than just clip IDs.
 
 The output contains `project_id` and `clip_id` as separate fields. Use `clip_id` (e.g. `0RiWBs5xuF`) for `--clip` flags, not the composite ID.
+
+### list-projects
+
+List the calling org's clip projects, most recent first. Use this to find a `project_id` when the user hasn't given one.
+
+```bash
+opusclip list-projects
+opusclip list-projects --page 1 --page-size 50
+```
+
+| Flag | Description |
+|------|-------------|
+| `--page` | Page number, 0-based (default 0) |
+| `--page-size` | Items per page, 1–100 (default 20) |
+
+Each row has `project_id`, `title`, `source_type`, `source_video_id`, `stage`, `created_at`, `updated_at`, `is_deleted`.
+
+### transcript
+
+Get a project's source-video transcript: paragraphs with word-level timing (in milliseconds).
+
+```bash
+opusclip transcript --project PROJECT_ID
+```
+
+| Flag | Description |
+|------|-------------|
+| `--project` | Project ID to fetch the transcript for |
+
+Returns `{ project_id, paragraphs: [{ paragraph_id, start_ms, end_ms, text, words: [{ word, start_ms, end_ms }] }] }`. If the project has no transcript yet (still processing), `paragraphs` is omitted.
 
 ### preview
 
@@ -148,28 +180,21 @@ Collections can be exported (download links) but cannot be shared publicly. To s
 >
 > Never run edit-clip or post schedule in a loop without user confirmation each iteration.
 
-Server-side edits to an existing clip. `apply` re-renders the clip (charged, beta caps apply); `censor` calls a dedicated endpoint and also re-renders; `get` is read-only.
+Server-side edits to an existing clip. All sub-verbs except `get` re-render the clip (charged, beta caps apply). The CLI does the EditingScript walking client-side; the API is a generic passthrough that mirrors the web editor's Save action. See `references/editing-script.md` for the mutation paths and recipes.
 
 ```bash
-opusclip edit-clip get     --project PID --clip CID [--output FILE]
-opusclip edit-clip apply   --project PID --clip CID --script FILE
-opusclip edit-clip censor  --project PID --clip CID [--beep]
+opusclip edit-clip get             --project PID --clip CID [--output FILE]
+opusclip edit-clip apply           --project PID --clip CID --script FILE
+opusclip edit-clip censor          --project PID --clip CID [--beep]
 ```
 
-The CLI is thin transport — it does not construct EditingScripts. For any edit beyond profanity censoring (trim, caption typo fix, caption-track replacement, layout change, etc.), the agent owns the construction:
-
-1. `opusclip edit-clip get --project PID --clip CID --output current.json` to fetch the clip's current EditingScript.
-2. Open `references/editing-script.md` and read the worked sample closest to the requested edit. Each sample shows a before / after EditingScript fragment with notes on which fields move.
-3. Construct the edited script (with `jq`, the `Edit` tool, or any other editor — whatever the agent has at hand).
-4. `opusclip edit-clip apply --project PID --clip CID --script edited.json` to submit.
-
-> **What happened to `caption-fix`, `caption-replace`, `trim`?**
+> **caption edits / trims**
 >
-> These sub-verbs existed through v2.2.6 but were removed in v2.2.7 — they hand-rolled EditingScript mutations inside the CLI and drifted from the engine's contract, producing re-renders that silently ignored the requested edit (captions shifted, but the underlying video/audio didn't). Worked samples in `references/editing-script.md` now cover each of these operations; pair them with `get` + `apply`.
+> The `caption-fix`, `caption-replace`, and server-side `trim` sub-verbs were removed (they hand-rolled EditingScripts in the CLI and drifted from the engine). For those edits use the `get` -> edit the EditingScript -> `apply` round-trip; see `references/editing-script.md` for worked recipes. `censor` is the one remaining convenience verb.
 
-Both `apply` and `censor` return `{jobId}`. Poll status via `opusclip describe --project PID --clip CID` — `renderAsVideoFile.pending` flips false when the new render is ready and `uriForExport` then points at the new mp4.
+`apply` / `censor` return `{jobId}`. Poll status via `opusclip describe --project PID --clip CID` — `render_pending` is `true` while the re-render runs (absent or false when done), and `export_url` then points at the new mp4.
 
-The top-level `opusclip trim` (local ffmpeg) is unchanged — fast cut on the preview mp4, no captions, no API call. Use it for quick, no-captions clips; use `edit-clip get` + `apply` when captions and brand styling need to ride along.
+For a caption typo or a trim, fetch the script with `edit-clip get`, edit the relevant `textElement.text` or timing fields, then `edit-clip apply --script FILE`. See `references/editing-script.md`. (The top-level `opusclip trim` remains as a free, instant, no-caption ffmpeg cut on the preview mp4.)
 
 ### describe
 
@@ -188,14 +213,14 @@ opusclip describe --layout --project PROJECT_ID --clip CLIP_ID
 | `--transcript` | Show only transcript text |
 | `--layout` | Show only layout/framing info |
 
-Without `--transcript` or `--layout`, the default output includes content fields (`title`, `description`, `transcript`, `hashtags`, `keywords`, `score`, `duration_sec`/`durationMs`) **and** render-state fields (`uriForPreview`, `uriForExport`, `renderAsVideoPreview`, `renderAsVideoFile`) — the latter is what powers re-render polling. Use `--transcript` when you only need the spoken text. Use `--layout` to check current framing before suggesting layout changes.
+Without `--transcript` or `--layout`, the default output includes content fields (`title`, `description`, `transcript`, `hashtags`, `keywords`, `score`, `duration_sec`, `aspect`), media URLs (`preview_url`, `export_url`), and `render_pending` (`true` while a re-render is in flight; absent or false when done) — what powers re-render polling. Use `--transcript` when you only need the spoken text. Use `--layout` to check current framing before suggesting layout changes.
 
 Polling a re-render (after any `edit-clip` sub-verb):
 
 ```bash
 while :; do
   opusclip describe --project P --clip C \
-    | jq -e '.renderAsVideoFile.pending == false' >/dev/null && break
+    | jq -e '.render_pending != true' >/dev/null && break
   sleep 10
 done
 ```
@@ -274,7 +299,7 @@ When the user doesn't specify a post title, use the clip's title from the `list 
 
 Generate AI-designed YouTube thumbnails from a source video. Results are downloaded automatically on completion.
 
-**Cost:** Every call is credit-charged for Pro/Enterprise callers — the API surface has no free quota (free quota is web-only). The per-call credit amount comes from Statsig `growth-tool-quota-config.thumbnail.credit.amount` (code default fallback: 5). Free/Starter callers get a `QuotaExceedErr`. Verify the live Statsig value if you need to quote an exact number.
+**Cost:** Every call is credit-charged for Pro/Enterprise callers — the API surface has no free quota (free quota is web-only). Each call costs a fixed number of credits (currently 7). Free/Starter callers get a `QuotaExceedErr`.
 
 ```bash
 opusclip thumbnail --url "https://youtube.com/watch?v=..."
@@ -371,13 +396,13 @@ opusclip post cancel --schedule SCHEDULE_ID
 ### Edit a clip, then post
 
 ```bash
-# Server-side edit (censor, or apply with an edited script you built from references/editing-script.md)
+# Server-side edit (censor / apply)
 opusclip edit-clip censor --project PROJECT_ID --clip CLIP_ID --beep
 
 # Wait for the re-render
 while :; do
   opusclip describe --project PROJECT_ID --clip CLIP_ID \
-    | jq -e '.renderAsVideoFile.pending == false' >/dev/null && break
+    | jq -e '.render_pending != true' >/dev/null && break
   sleep 10
 done
 
@@ -392,7 +417,7 @@ opusclip post publish --project PROJECT_ID --clip CLIP_ID --account ACCOUNT_ID -
 - Max concurrent: 50 projects
 - Projects expire after 30 days
 - 1 credit = 1 minute of video
-- Thumbnail API: credit-charged per call (Pro/Enterprise only; Statsig-configured amount); experimental, may be disabled without notice (503)
+- Thumbnail API: credit-charged per call (Pro/Enterprise only; currently 7 credits); experimental, may be disabled without notice (503)
 
 ## API Reference
 
