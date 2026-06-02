@@ -84,14 +84,14 @@ Alias: `get-clips`
 ```bash
 opusclip list --project PROJECT_ID
 opusclip list --project PROJECT_ID --summary
-opusclip list --collection COLLECTION_ID
 ```
 
 | Flag | Description |
 |------|-------------|
-| `--project` | Project ID to fetch clips for |
-| `--collection` | Collection ID to fetch clips for |
+| `--project` | (required) Project ID to fetch clips for |
 | `--summary` | Deprecated no-op (kept for back-compat) — scored/human-readable fields are always included now |
+
+To list the clips in a collection, use `collections clips --id COLLECTION_ID`.
 
 Clips already include human-readable fields (title, description, hashtags, scores) by default. Display clips with their title and description rather than just clip IDs.
 
@@ -134,13 +134,11 @@ Generate an HTML preview page with video players for all clips and open it in th
 ```bash
 opusclip preview --project PROJECT_ID
 opusclip preview --project PROJECT_ID --output /path/to/output.html
-opusclip preview --collection COLLECTION_ID
 ```
 
 | Flag | Description |
 |------|-------------|
 | `--project` | Project ID |
-| `--collection` | Collection ID |
 | `--output` | Custom output path (default: `/tmp/opusclip-preview-{id}.html`) |
 
 The preview page shows clips sorted by score with inline video players, titles, descriptions, hashtags, and detailed AI scores (hook, coherence, connection, trend). Use this whenever the user wants to watch or preview their clips.
@@ -161,14 +159,13 @@ opusclip share --project PROJECT_ID
 
 ```bash
 opusclip collections list
+opusclip collections clips --id COL_ID
 opusclip collections create --name "NAME"
-opusclip collections delete --id ID
 opusclip collections export --id ID
 opusclip collections add-clip --id COL_ID --content-id PROJECT_ID.CLIP_ID
-opusclip collections remove-clip --id COL_ID --content-id PROJECT_ID.CLIP_ID
 ```
 
-Collections can be exported (download links) but cannot be shared publicly. To share clips publicly, use `share --project` on the project instead.
+Destructive/complex collection operations (deleting a collection, removing a clip) are intentionally web-only — the CLI exposes only the basic, safe operations. Collections can be exported (download links) but cannot be shared publicly. To share clips publicly, use `share --project` on the project instead.
 
 ### edit-clip
 
