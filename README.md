@@ -49,7 +49,7 @@ skills/opusclip/scripts/opusclip submit --url "https://youtube.com/watch?v=..."
 
 ## Contributing
 
-CODEOWNERS lists current maintainers. Open a PR; CI runs eval on the skill against a fixed scenario set.
+CODEOWNERS lists current maintainers. Open a PR and a maintainer will review.
 
 ## License
 
