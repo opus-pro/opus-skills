@@ -27,20 +27,18 @@ SKILL.md now instructs the agent to narrate the OpusClip web app's copyright dis
 
 > Using video you don't own may violate copyright laws. By continuing, you confirm this is your own original content.
 
-Mirrors `copyright_hint` from `clip-web`'s `SubmitPanel` (`clip-apps/apps/clip-web/public/locales/en/clip.json:65`). Hint, not blocker — no `AskUserQuestion`, no `PreToolUse` hook gating the submit. Tracks opus-skills-eval case 43; escalation to a hard hook is reserved if narration compliance proves insufficient in future eval walks.
+Mirrors the copyright disclaimer shown in the OpusClip web app's submit flow. Hint, not blocker — it's narrated as a plain notice, with no hard gate on submit.
 
-CLI script content unchanged, so the eval's version-bump gate is not triggered by this release; the bump is for the SKILL.md behavior change and to keep plugin/marketplace manifests aligned with eval "Tested on" rows.
+CLI script content is unchanged this release; the version bump is for the SKILL.md behavior change and to keep the plugin/marketplace manifests aligned.
 
-## 2.2.5 — edit-clip eval follow-ups (BUG-4 + BUG-5)
+## 2.2.5 — edit-clip bugfixes
 
-Two skill-side bugs surfaced by the v2.2.4 live eval (opus-skills-eval `evals/results/2026-05-15-v2.2.4-edit-pipeline.json`):
+Two skill-side bugs found while testing the v2.2.4 edit pipeline:
 
 - **`edit-clip trim` no longer overlays trim metadata onto error responses.** Past failures (e.g. an engine `413 request entity too large`) came back as `{statusCode: 413, message, startMs, endMs, durationMs}` — looked half-successful. The overlay is now gated on `.jobId`, so error bodies pass through unmodified.
 - **Multi-word `edit-clip caption-fix` now matches across caption segment boundaries.** v2.2.4's per-segment walk silently missed any find whose tokens spanned more than one segment, which is the common case (caption segments are typically 1-5 tokens, so `"Vault Dweller"` lands across seg9→seg10). v2.2.5 flattens every CaptionTrack's `textElements` into a single ordered list tagged with `(section, segment, element)` provenance, runs the sequence search on the flat list, and writes the 1:1 replacements back to their original positions. Same caveat as before: `--find` and `--replace` must have equal token counts; mismatches die with a pointer to `caption-replace` / `apply`. The `edit-clip caption-fix` success overlay is also `.jobId`-gated now (same fix as trim).
 
 Caption-fix overlay is also `.jobId`-gated (same fix as trim).
-
-Engine-side: the `413` itself (clip-api's 100KB Express default JSON limit on `POST /exportable-clips/:id/re-render`) is being tracked separately on clip-apps; the right fix there is a dedicated body-parser middleware scoped to the re-render route, matching the existing `AIContentBodyParserMiddleware` / `EditorHistoryContentBodyParserMiddleware` patterns.
 
 ## 2.2.4 — edit-clip / describe bugfixes from 2026-05-15 session
 
@@ -52,7 +50,7 @@ Three bugs surfaced while exercising the edit pipeline end-to-end:
 
 ## 2.2.3 — launch-readiness pass
 
-Findings from the 2026-05-14 full launch-readiness eval (opus-skills-eval `evals/results/2026-05-14-v2.2.2-launch-readiness.json`). All four must-fix items in one patch:
+Four must-fix items from a 2026-05-14 launch-readiness pass, in one patch:
 
 - **`storyboard`**: detect `drawtext` (libfreetype) availability at runtime. Fall back to an unlabeled 2×2 grid when missing, with a one-line stderr note pointing at `brew reinstall ffmpeg`. Removed `2>/dev/null` from every ffmpeg call — failures now surface with a clear `storyboard: ffmpeg ...` message instead of silent exit 8.
 - **`need ffmpeg` install hint**: `storyboard` and local `trim` (the two ffmpeg-dependent commands) now tell users how to install ffmpeg if missing, and clarify that the command is local-only (no API alternative for storyboard; `edit-clip trim` is the server-side alternative for trim).
@@ -61,11 +59,11 @@ Findings from the 2026-05-14 full launch-readiness eval (opus-skills-eval `evals
 
 ## 2.2.2 — caption-replace bugfix
 
-- Fix `edit-clip caption-replace` writing new textElements to only `.sections[0].segments[0]`, leaving every other segment + section's original textElements in place. Now collapses the CaptionTrack to a single section + single segment containing every word from the transcript, matching the doc claim "replace the whole caption track". Caught by the 2026-05-14 live eval (6 new words ended up prepended to 46 original words on a real clip).
+- Fix `edit-clip caption-replace` writing new textElements to only `.sections[0].segments[0]`, leaving every other segment + section's original textElements in place. Now collapses the CaptionTrack to a single section + single segment containing every word from the transcript, matching the doc claim "replace the whole caption track". Caught in live testing (6 new words ended up prepended to 46 original words on a real clip).
 
-## 2.2.1 — v2.2.0 eval follow-ups
+## 2.2.1 — v2.2.0 follow-ups
 
-Patches three doc gaps surfaced by the 2026-05-14 skill eval (28/28 pass — opus-skills-eval `evals/results/2026-05-14-v2.2.0.json`) and one shellcheck warning the same eval CI caught:
+Patches three doc gaps found during testing (28/28 pass) and one shellcheck warning:
 
 - SKILL.md `describe` section now shows the polling `jq` one-liner inline, not just the field name.
 - SKILL.md `Common Workflows` gains an "Edit a clip, then post" recipe stitching `edit-clip * → describe poll → post publish` into one block.
@@ -74,9 +72,9 @@ Patches three doc gaps surfaced by the 2026-05-14 skill eval (28/28 pass — opu
 
 `plugin.json` also bumped from 2.1.0 → 2.2.1 (was missed in the 2.2.0 release).
 
-## 2.2.0 — `edit-clip` umbrella (AGE-7)
+## 2.2.0 — `edit-clip` umbrella
 
-Wraps the new clip-api endpoints for server-side caption editing, trim, and any future edit op. All flows share one underlying primitive: fetch the clip's `EditingScript`, mutate it locally, POST it back to `/re-render`. Same shape the web editor uses on Save — no parallel schema, no per-op endpoint.
+Wraps the new server-side edit endpoints for caption editing, trim, and any future edit op. All flows share one underlying primitive: fetch the clip's `EditingScript`, mutate it locally, POST it back to `/re-render`. Same shape the web editor uses on Save — no parallel schema, no per-op endpoint.
 
 ### Added
 
@@ -106,7 +104,7 @@ Reverts the 2.0.0 plugin-marketplace + MCP changes. Back to the pre-2.0.0 shape:
 - Drop the `plugins/opusclip/` wrapper — only existed to host MCP config at a plugin root.
 - Drop `docs/install/` — README install table + SKILL.md cover everything.
 - Restore `skills/opusclip/templates/preview.html`; `opusclip preview` is no longer shipped-broken.
-- `SKILL.md` is byte-identical to the 1.x eval-tuned baseline (19/19 from #12).
+- `SKILL.md` is byte-identical to the 1.x tuned baseline (#12).
 - `OPUSCLIP_API_KEY` access now also available on the Pro plan, not just Enterprise.
 
 ## 2.0.0 — Plugin marketplace + MCP server
@@ -135,4 +133,4 @@ Reverts the 2.0.0 plugin-marketplace + MCP changes. Back to the pre-2.0.0 shape:
 - chore: bump version to 1.2.0 (#13)
 
 ## 1.1.0 — *2026-04-24*
-- docs: improve skill based on eval results (15/19 → targeting 19/19) (#12)
+- docs: improve skill based on test results (#12)
