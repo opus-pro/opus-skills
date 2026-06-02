@@ -215,7 +215,7 @@ Response: `{status: "QUEUED"|"PROCESSING"|"CONCLUDED"|"FAILED"|"UNKNOWN", error?
 
 Generate AI-designed thumbnails from a source video. Rides the shared `/generative-jobs` endpoint — there is no dedicated `/thumbnails` path. Pro + Enterprise only.
 
-**Cost model.** Every API call is credit-charged. There is no free quota for API callers (free quota is a web free-tool concession; granting it to programmatic clients would let scripts farm free calls forever). The per-call credit amount comes from Statsig `growth-tool-quota-config.thumbnail.credit.amount` (code default fallback: 5; AGE-189 documents the intent as 7 — verify against the live Statsig value). Credits are frozen on submit and refunded internally if the workflow fails. Free/Starter callers receive `QuotaExceedErr`.
+**Cost model.** Every API call is credit-charged — there is no free quota for API callers (free quota is a web-only concession). Each call costs a fixed number of credits (currently 7). Credits are reserved when the job is submitted and refunded automatically if the job fails. Free/Starter callers receive `QuotaExceedErr`.
 
 ### Create Thumbnail Job
 
