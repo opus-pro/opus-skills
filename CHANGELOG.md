@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.1.0 — `usage` command: check your API cap
+
+Adds `opusclip usage` — the first new command since the 3.0.0 CLI rebuild. It reports how much of the org's monthly API cap is used and how close it is to the limit:
+
+- **Capped:** `{ uncapped: false, monthly: { used, limit, remaining, reset_at }, concurrent: { used, limit } }`. The monthly numbers match the `X-RateLimit-*` headers returned on every API response, so the command can't drift from what's actually enforced.
+- **Uncapped:** `{ uncapped: true }` for orgs with no API cap (some Enterprise plans).
+
 ## 2.2.7 — edit-clip is now thin transport; agent owns EditingScript construction
 
 Three `edit-clip` sub-verbs are **removed**: `trim`, `caption-fix`, `caption-replace`. They hand-rolled `EditingScript` mutations in jq inside the CLI and drifted from the re-render API's contract — producing re-renders that silently ignored the requested edit (e.g. captions shifted to the new window but the underlying video/audio stayed pinned to the original clip). Users reported the trim case as not-actually-trimming the video; the same class of defect was latent in `caption-fix` and `caption-replace`.

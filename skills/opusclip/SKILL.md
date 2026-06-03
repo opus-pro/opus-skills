@@ -35,6 +35,7 @@ opusclip share --project ID                   Share project (alias: share-projec
 opusclip templates                            List brand templates
 opusclip upload --file PATH [options]         Upload local video + create project
 opusclip thumbnail --url URL [options]        Generate YouTube thumbnails (experimental; credit-charged per call)
+opusclip usage                                Show the org's API cap usage (monthly + concurrent, or uncapped)
 opusclip collections <sub> [options]          Manage collections
 opusclip post <sub> [options]                 Social posting (publish, schedule, generate copy)
   schedule        Schedule a post for future publishing (beta — pricing may change)
@@ -319,6 +320,19 @@ Error codes:
 - `503` — the endpoint is temporarily disabled (kill switch). Try again later.
 
 The endpoint is governed by a kill switch (`pro_api_generative_jobs_enabled`); a 503 means the capability is paused, not that something is wrong with your call.
+
+### usage
+
+Show the calling org's API cap usage — answers "how much of my monthly API cap have I used / how close am I to the limit?". Takes no flags; reads `GET /api/api-usage?q=mine`.
+
+```bash
+opusclip usage
+```
+
+Two output shapes:
+
+- **Capped:** `{ uncapped: false, monthly: { used, limit, remaining, reset_at }, concurrent: { used, limit } }`. The `monthly` numbers are the same ones stamped on every API response as `X-RateLimit-Limit` / `X-RateLimit-Remaining` (and `reset_at` is the ISO form of `X-RateLimit-Reset`), so this can't drift from what's actually enforced; `concurrent` is in-flight projects vs the concurrent cap.
+- **Uncapped:** `{ uncapped: true }` — the workspace has no API cap (some Enterprise plans); no numbers to report.
 
 ## Common Workflows
 

@@ -16,6 +16,7 @@ Rate limit: 30 req/min. Max video: 10h / 30GB. Max concurrent: 50 projects.
 - [Censor Jobs](#censor-jobs)
 - [Thumbnail Generation](#thumbnail-generation)
 - [Social Posting](#social-posting)
+- [API Usage](#api-usage)
 
 ---
 
@@ -359,3 +360,33 @@ Response (201): `{data: {scheduleId: "string"}}`
 **DELETE** `/publish-schedules/{scheduleId}`
 
 Cancel a scheduled post before it publishes.
+
+---
+
+## API Usage
+
+**GET** `/api-usage?q=mine`
+
+Report the calling org's API cap usage in one read — the same numbers enforced as the `X-RateLimit-*` response headers. No request body; the `q=mine` selector is required.
+
+Response (200), capped org:
+
+```json
+{
+  "uncapped": false,
+  "monthly": { "used": 1234, "limit": 5000, "remaining": 3766, "reset_at": "2026-07-01T00:00:00.000Z" },
+  "concurrent": { "used": 1, "limit": 50 }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `uncapped` | boolean | `false` when the org has a cap (numbers present); `true` when the org has no API cap (numbers omitted). |
+| `monthly.used` | number | Credits used this period — equals `limit - remaining`, i.e. `X-RateLimit-Limit` minus `X-RateLimit-Remaining`. |
+| `monthly.limit` | number | Monthly credit cap (`X-RateLimit-Limit`). |
+| `monthly.remaining` | number | Credits left this period (`X-RateLimit-Remaining`). |
+| `monthly.reset_at` | string | ISO 8601 reset time (`X-RateLimit-Reset` as ISO). |
+| `concurrent.used` | number | Projects currently in flight. |
+| `concurrent.limit` | number | Max concurrent projects. |
+
+Response (200), org with no cap (some Enterprise plans): `{ "uncapped": true }` — `monthly` / `concurrent` omitted.
