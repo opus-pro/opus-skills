@@ -44,7 +44,7 @@ export OPUSCLIP_API_KEY=sk_...
 git clone https://github.com/opus-pro/opus-skills.git
 cd opus-skills
 export OPUSCLIP_API_KEY=sk_...
-skills/opusclip/scripts/opusclip submit --url "https://youtube.com/watch?v=..."
+skills/opusclip/scripts/opusclip project create --url "https://youtube.com/watch?v=..."
 ```
 
 ## Contributing
