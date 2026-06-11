@@ -16,50 +16,54 @@ Turn long-form videos into short clips via the OpusClip API.
 
 ## CLI Quick Reference
 
-Run the bundled CLI at `scripts/opusclip`. All commands output JSON.
+Run the bundled CLI at `scripts/opusclip`. Commands follow a **resource + verb** tree (`opusclip <resource> <verb>`); all commands output JSON.
 
 ```
-opusclip submit --url URL [options]           Submit video for clipping (alias: create-project)
-opusclip list --project ID [--summary]        List clips (alias: get-clips)
-opusclip list-projects [--page N]             List the org's clip projects (most recent first)
-opusclip describe --project ID --clip CID     Get clip details (transcript, layout info)
-opusclip transcript --project ID              Get the source-video transcript (paragraphs + word timing in ms)
-opusclip storyboard --project ID --clip CID   Generate 2x2 frame preview (requires ffmpeg)
-opusclip trim --project ID --clip CID --start S --end E    Local ffmpeg trim (no API call, no captions)
-opusclip edit-clip <sub> [flags]              Server-side clip edits (charged, re-renders the clip) (beta — pricing may change)
+opusclip project create --url URL [options]   Submit video for clipping
+opusclip project create --file PATH [options] Upload local video + create project
+opusclip project list [--page N]              List the org's clip projects (most recent first)
+opusclip project share --project ID           Share project publicly
+opusclip project transcript --project ID      Get the source-video transcript (paragraphs + word timing in ms)
+opusclip project preview --project ID [--output PATH]  Generate HTML preview and open in browser
+opusclip clip list --project ID               List a project's clips
+opusclip clip get --project ID --clip CID     Get clip details (transcript, layout info)
+opusclip clip edit <verb> [flags]             Server-side clip edits (charged, re-renders the clip) (beta — pricing may change)
   get             Fetch EditingScript JSON for round-trip edits (beta — pricing may change)
   apply           Submit an edited EditingScript directly (beta — pricing may change)
   censor          Profanity censor (dictionary-based; --beep adds sound effect) (beta — pricing may change)
-opusclip preview --project ID [--output PATH] Generate HTML preview and open in browser
-opusclip share --project ID                   Share project (alias: share-project)
-opusclip templates                            List brand templates
-opusclip upload --file PATH [options]         Upload local video + create project
-opusclip thumbnail --url URL [options]        Generate YouTube thumbnails (experimental; credit-charged per call)
-opusclip usage                                Show the org's API cap usage (monthly + concurrent, or uncapped)
-opusclip collections <sub> [options]          Manage collections
-opusclip post <sub> [options]                 Social posting (publish, schedule, generate copy)
+opusclip clip trim --project ID --clip CID --start S --end E   Local ffmpeg trim (no API call, no captions)
+opusclip clip storyboard --project ID --clip CID   Generate 2x2 frame preview (requires ffmpeg)
+opusclip collection <verb> [options]          Manage collections (list, clips, create, export, add-clip)
+opusclip post <verb> [options]                Social posting (create, schedule, cancel)
+  account list    List connected social accounts
+  copy create     Generate AI-optimized post copy
+  copy get        Poll for generated copy result
   schedule        Schedule a post for future publishing (beta — pricing may change)
+opusclip thumbnail create --url URL [options] Generate YouTube thumbnails (experimental; credit-charged per call)
+opusclip template list                        List brand templates
+opusclip usage                                Show the org's API cap usage (monthly + concurrent, or uncapped)
 ```
 
-### submit
+Legacy bare-verb aliases (`submit`, `create-project`, `upload`, `list`, `get-clips`, `list-projects`, `describe`, `templates`, `transcript`, `share`, `share-project`, `collections`, `edit-clip`, `trim`, `storyboard`, `preview`, `post publish|accounts|generate-copy|copy-status`) still work, but the resource + verb forms below are canonical.
 
-Alias: `create-project`
+### project create
 
 > **Copyright hint**
 >
-> Immediately before calling `opusclip submit` or `opusclip upload`, narrate the following sentence to the user as a plain notice (not an `AskUserQuestion`, not a yes/no gate):
+> Immediately before calling `opusclip project create`, narrate the following sentence to the user as a plain notice (not an `AskUserQuestion`, not a yes/no gate):
 >
 > > Using video you don't own may violate copyright laws. By continuing, you confirm this is your own original content.
 >
-> This mirrors the inline disclaimer the OpusClip web app shows on its submit panel. Show it verbatim on every submit/upload; do not block on a confirmation.
+> This mirrors the inline disclaimer the OpusClip web app shows on its submit panel. Show it verbatim on every `project create`; do not block on a confirmation.
 
 ```bash
-opusclip submit --url "https://youtube.com/watch?v=..." --durations "30,60,90" [more options]
+opusclip project create --url "https://youtube.com/watch?v=..." --durations "30,60,90" [more options]
 ```
 
 | Flag | Description |
 |------|-------------|
-| `--url` | (required) Video URL |
+| `--url` | (required unless `--file`) Video URL |
+| `--file` | Upload a local video instead of a URL (handles the full 4-step GCS upload flow automatically; same remaining flags) |
 | `--durations` | (required in practice) Target clip lengths in seconds, e.g. `"30,60,90"`. API rejects payloads without `curationPref.clipDurations`. |
 | `--model` | `ClipBasic` (talking-head) or `ClipAnything` (diverse) |
 | `--prompt` | Custom clipping prompt (ClipAnything only) |
@@ -74,17 +78,10 @@ opusclip submit --url "https://youtube.com/watch?v=..." --durations "30,60,90" [
 | `--skip-curate` | Process original video without AI curation |
 | `--remove-filler` | Remove filler words |
 
-### upload
-
-Same flags as `submit` plus `--file PATH`. Handles the full 4-step GCS upload flow automatically.
-
-### list
-
-Alias: `get-clips`
+### clip list
 
 ```bash
-opusclip list --project PROJECT_ID
-opusclip list --project PROJECT_ID --summary
+opusclip clip list --project PROJECT_ID
 ```
 
 | Flag | Description |
@@ -92,19 +89,19 @@ opusclip list --project PROJECT_ID --summary
 | `--project` | (required) Project ID to fetch clips for |
 | `--summary` | Deprecated no-op (kept for back-compat) — scored/human-readable fields are always included now |
 
-To list the clips in a collection, use `collections clips --id COLLECTION_ID`.
+To list the clips in a collection, use `collection clips --id COLLECTION_ID`.
 
 Clips already include human-readable fields (title, description, hashtags, scores) by default. Display clips with their title and description rather than just clip IDs.
 
 The output contains `project_id` and `clip_id` as separate fields. Use `clip_id` (e.g. `0RiWBs5xuF`) for `--clip` flags, not the composite ID.
 
-### list-projects
+### project list
 
 List the calling org's clip projects, most recent first. Use this to find a `project_id` when the user hasn't given one.
 
 ```bash
-opusclip list-projects
-opusclip list-projects --page 1 --page-size 50
+opusclip project list
+opusclip project list --page 1 --page-size 50
 ```
 
 | Flag | Description |
@@ -114,12 +111,12 @@ opusclip list-projects --page 1 --page-size 50
 
 Each row has `project_id`, `title`, `source_type`, `source_video_id`, `stage`, `created_at`, `updated_at`, `is_deleted`.
 
-### transcript
+### project transcript
 
 Get a project's source-video transcript: paragraphs with word-level timing (in milliseconds).
 
 ```bash
-opusclip transcript --project PROJECT_ID
+opusclip project transcript --project PROJECT_ID
 ```
 
 | Flag | Description |
@@ -128,13 +125,13 @@ opusclip transcript --project PROJECT_ID
 
 Returns `{ project_id, paragraphs: [{ paragraph_id, start_ms, end_ms, text, words: [{ word, start_ms, end_ms }] }] }`. If the project has no transcript yet (still processing), `paragraphs` is omitted.
 
-### preview
+### project preview
 
 Generate an HTML preview page with video players for all clips and open it in the browser.
 
 ```bash
-opusclip preview --project PROJECT_ID
-opusclip preview --project PROJECT_ID --output /path/to/output.html
+opusclip project preview --project PROJECT_ID
+opusclip project preview --project PROJECT_ID --output /path/to/output.html
 ```
 
 | Flag | Description |
@@ -144,64 +141,62 @@ opusclip preview --project PROJECT_ID --output /path/to/output.html
 
 The preview page shows clips sorted by score with inline video players, titles, descriptions, hashtags, and detailed AI scores (hook, coherence, connection, trend). Use this whenever the user wants to watch or preview their clips.
 
-### share
-
-Alias: `share-project`
+### project share
 
 ```bash
-opusclip share --project PROJECT_ID
+opusclip project share --project PROJECT_ID
 ```
 
 | Flag | Description |
 |------|-------------|
 | `--project` | (required) Project ID |
 
-### collections
+### collection
 
 ```bash
-opusclip collections list
-opusclip collections clips --id COL_ID
-opusclip collections create --name "NAME"
-opusclip collections export --id ID
-opusclip collections add-clip --id COL_ID --content-id PROJECT_ID.CLIP_ID
+opusclip collection list
+opusclip collection clips --id COL_ID
+opusclip collection create --name "NAME"
+opusclip collection export --id ID
+opusclip collection add-clip --id COL_ID --content-id PROJECT_ID.CLIP_ID
 ```
 
-Destructive/complex collection operations (deleting a collection, removing a clip) are intentionally web-only — the CLI exposes only the basic, safe operations. Collections can be exported (download links) but cannot be shared publicly. To share clips publicly, use `share --project` on the project instead.
+Destructive/complex collection operations (deleting a collection, removing a clip) are intentionally web-only — the CLI exposes only the basic, safe operations. Collections can be exported (download links) but cannot be shared publicly. To share clips publicly, use `project share --project` on the project instead.
 
-### edit-clip
+### clip edit
 
 > **BETA — features and pricing are subject to change. API pricing may diverge from web pricing.**
 
 > **Workflow guidance**
 >
-> Before running more than 3 edit-clip operations on a single clip in one session, ask the user to confirm — these may incur charges that don't match the web UX.
+> Before running more than 3 `clip edit` operations on a single clip in one session, ask the user to confirm — these may incur charges that don't match the web UX.
 >
-> Never run edit-clip or post schedule in a loop without user confirmation each iteration.
+> Never run `clip edit` or `post schedule` in a loop without user confirmation each iteration.
 
 Server-side edits to an existing clip. All sub-verbs except `get` re-render the clip (charged, beta caps apply). The CLI does the EditingScript walking client-side; the API is a generic passthrough that mirrors the web editor's Save action. See `references/editing-script.md` for the mutation paths and recipes.
 
 ```bash
-opusclip edit-clip get             --project PID --clip CID [--output FILE]
-opusclip edit-clip apply           --project PID --clip CID --script FILE
-opusclip edit-clip censor          --project PID --clip CID [--beep]
+opusclip clip edit get             --project PID --clip CID [--output FILE]
+opusclip clip edit apply           --project PID --clip CID --script FILE
+opusclip clip edit censor          --project PID --clip CID [--beep]
 ```
 
 > **caption edits / trims**
 >
 > The `caption-fix`, `caption-replace`, and server-side `trim` sub-verbs were removed (they hand-rolled EditingScripts in the CLI and drifted from the engine). For those edits use the `get` -> edit the EditingScript -> `apply` round-trip; see `references/editing-script.md` for worked recipes. `censor` is the one remaining convenience verb.
 
-`apply` / `censor` return `{jobId}`. Poll status via `opusclip describe --project PID --clip CID` — `render_pending` is `true` while the re-render runs (absent or false when done), and `export_url` then points at the new mp4.
+`apply` / `censor` return `{jobId}`. Poll status via `opusclip clip get --project PID --clip CID` — `render_pending` is `true` while the re-render runs (absent or false when done), and `export_url` then points at the new mp4.
 
-For a caption typo or a trim, fetch the script with `edit-clip get`, edit the relevant `textElement.text` or timing fields, then `edit-clip apply --script FILE`. See `references/editing-script.md`. (The top-level `opusclip trim` remains as a free, instant, no-caption ffmpeg cut on the preview mp4.)
+For a caption typo or a trim, fetch the script with `clip edit get`, edit the relevant `textElement.text` or timing fields, then `clip edit apply --script FILE`. See `references/editing-script.md`. (`opusclip clip trim` remains as a free, instant, no-caption ffmpeg cut on the preview mp4.)
 
-### describe
+### clip get
 
 Get structured information about a clip. Use this to understand clip content without watching the video.
 
 ```bash
-opusclip describe --project PROJECT_ID --clip CLIP_ID
-opusclip describe --transcript --project PROJECT_ID --clip CLIP_ID
-opusclip describe --layout --project PROJECT_ID --clip CLIP_ID
+opusclip clip get --project PROJECT_ID --clip CLIP_ID
+opusclip clip get --transcript --project PROJECT_ID --clip CLIP_ID
+opusclip clip get --layout --project PROJECT_ID --clip CLIP_ID
 ```
 
 | Flag | Description |
@@ -213,23 +208,23 @@ opusclip describe --layout --project PROJECT_ID --clip CLIP_ID
 
 Without `--transcript` or `--layout`, the default output includes content fields (`title`, `description`, `transcript`, `hashtags`, `keywords`, `score`, `duration_sec`, `aspect`), media URLs (`preview_url`, `export_url`), and `render_pending` (`true` while a re-render is in flight; absent or false when done) — what powers re-render polling. Use `--transcript` when you only need the spoken text. Use `--layout` to check current framing before suggesting layout changes.
 
-Polling a re-render (after any `edit-clip` sub-verb):
+Polling a re-render (after any `clip edit` sub-verb):
 
 ```bash
 while :; do
-  opusclip describe --project P --clip C \
+  opusclip clip get --project P --clip C \
     | jq -e '.render_pending != true' >/dev/null && break
   sleep 10
 done
 ```
 
-### storyboard
+### clip storyboard
 
 Generate a 2x2 frame grid image from a clip's preview video. Requires `ffmpeg`.
 
 ```bash
-opusclip storyboard --project PROJECT_ID --clip CLIP_ID
-opusclip storyboard --project PROJECT_ID --clip CLIP_ID --output /path/to/output.jpg
+opusclip clip storyboard --project PROJECT_ID --clip CLIP_ID
+opusclip clip storyboard --project PROJECT_ID --clip CLIP_ID --output /path/to/output.jpg
 ```
 
 | Flag | Description |
@@ -240,13 +235,13 @@ opusclip storyboard --project PROJECT_ID --clip CLIP_ID --output /path/to/output
 
 Opens the image automatically on macOS/Linux. Use this for quick visual review of a clip's content.
 
-### trim
+### clip trim
 
 Trim a clip's preview video locally. Requires `ffmpeg`.
 
 ```bash
-opusclip trim --project PROJECT_ID --clip CLIP_ID --start 3 --end 50
-opusclip trim --project PROJECT_ID --clip CLIP_ID --start 3 --end 50 --output trimmed.mp4
+opusclip clip trim --project PROJECT_ID --clip CLIP_ID --start 3 --end 50
+opusclip clip trim --project PROJECT_ID --clip CLIP_ID --start 3 --end 50 --output trimmed.mp4
 ```
 
 | Flag | Description |
@@ -259,39 +254,39 @@ opusclip trim --project PROJECT_ID --clip CLIP_ID --start 3 --end 50 --output tr
 
 ### post
 
-> **BETA — features and pricing are subject to change. API pricing may diverge from web pricing.** Applies to `post publish` and `post schedule`.
+> **BETA — features and pricing are subject to change. API pricing may diverge from web pricing.** Applies to `post create` and `post schedule`.
 
 > **Workflow guidance**
 >
 > Before scheduling more than 5 posts in one session, ask the user to confirm — scheduled posts may begin to incur per-post charges.
 >
-> Never run edit-clip or post schedule in a loop without user confirmation each iteration.
+> Never run `clip edit` or `post schedule` in a loop without user confirmation each iteration.
 
 Manage social posting — publish clips to YouTube, TikTok, Facebook, Instagram, LinkedIn, and X.
 
 ```bash
-opusclip post accounts
-opusclip post generate-copy --project PID --clip CID --account AID [--prompt "tone"]
-opusclip post copy-status --job JOB_ID
-opusclip post publish --project PID --clip CID --account AID --title "Title" [--description "..."] [--privacy public]
+opusclip post account list
+opusclip post copy create --project PID --clip CID --account AID [--prompt "tone"]
+opusclip post copy get --job JOB_ID
+opusclip post create --project PID --clip CID --account AID --title "Title" [--description "..."] [--privacy public]
 opusclip post schedule --project PID --clip CID --account AID --title "Title" --at 2026-03-25T14:00:00Z
 opusclip post cancel --schedule SCHEDULE_ID
 ```
 
 | Subcommand | Description |
 |------------|-------------|
-| `accounts` | List connected social accounts (default) |
-| `generate-copy` | Generate AI-optimized post copy for a clip |
-| `copy-status` | Poll for generated copy result |
-| `publish` | Publish a clip immediately |
+| `account list` | List connected social accounts |
+| `copy create` | Generate AI-optimized post copy for a clip |
+| `copy get` | Poll for generated copy result |
+| `create` | Publish a clip immediately |
 | `schedule` | Schedule a clip for future publishing (beta — pricing may change) |
 | `cancel` | Cancel a scheduled post |
 
 Supported platforms: YouTube, TikTok Business, Facebook Page, Instagram Business, LinkedIn, X (Twitter). "Twitter" refers to X — the platform identifier is TWITTER. Each X post costs 1 credit.
 
-When the user doesn't specify a post title, use the clip's title from the `list --summary` output.
+When the user doesn't specify a post title, use the clip's title from the `clip list` output.
 
-### thumbnail
+### thumbnail create
 
 > **EXPERIMENTAL — features and pricing are subject to change. Daily caps apply. The endpoint may be temporarily disabled while in experimental status.**
 
@@ -300,13 +295,13 @@ Generate AI-designed YouTube thumbnails from a source video. Results are downloa
 **Cost:** Every call is credit-charged for Pro/Enterprise callers — the API surface has no free quota (free quota is web-only). Each call costs a fixed number of credits (currently 7). Free/Starter callers get a `QuotaExceedErr`.
 
 ```bash
-opusclip thumbnail --url "https://youtube.com/watch?v=..."
-opusclip thumbnail --url URL --reference ./face.png --prompt "bold red text 'EPIC'" --output ./thumbs/
+opusclip thumbnail create --url "https://youtube.com/watch?v=..."
+opusclip thumbnail create --url URL --reference ./face.png --prompt "bold red text 'EPIC'" --output ./thumbs/
 ```
 
 | Flag | Description |
 |------|-------------|
-| `--url` | (required) Source video URL — same sources as `submit` (`sourceUri`). |
+| `--url` | (required) Source video URL — same sources as `project create` (`sourceUri`). |
 | `--reference` | Optional local image to reference (face, brand asset). Uploaded via `/upload-links` `usecase: FreeToolMedia`. |
 | `--mask` | Optional local image used as a mask. Same upload flow. |
 | `--prompt` | Optional text prompt steering the design (style, copy). |
@@ -320,6 +315,14 @@ Error codes:
 - `503` — the endpoint is temporarily disabled (kill switch). Try again later.
 
 The endpoint is governed by a kill switch (`pro_api_generative_jobs_enabled`); a 503 means the capability is paused, not that something is wrong with your call.
+
+### template list
+
+```bash
+opusclip template list
+```
+
+List brand templates. Use a template's ID with `project create --template`.
 
 ### usage
 
@@ -338,18 +341,18 @@ Two output shapes:
 
 ### Clip a YouTube video
 ```bash
-opusclip submit --url "https://youtube.com/watch?v=VIDEO_ID" --durations "30,60,90"
+opusclip project create --url "https://youtube.com/watch?v=VIDEO_ID" --durations "30,60,90"
 # Wait for processing, then:
-opusclip list --project PROJECT_ID --summary
+opusclip clip list --project PROJECT_ID
 # Preview clips in browser:
-opusclip preview --project PROJECT_ID
+opusclip project preview --project PROJECT_ID
 ```
 
 `--durations` is required in practice — the API rejects payloads without `curationPref.clipDurations`. Pick the target clip lengths you want generated (each value becomes a `[0, N]` bucket).
 
 ### Use ClipAnything with a custom prompt
 ```bash
-opusclip submit \
+opusclip project create \
   --url "https://youtube.com/watch?v=VIDEO_ID" \
   --model ClipAnything \
   --prompt "Find the most emotional moments" \
@@ -358,44 +361,44 @@ opusclip submit \
 
 ### Upload a local video, clip, and organize
 ```bash
-opusclip upload --file video.mp4 --title "Interview" --model ClipBasic
-opusclip list --project PROJECT_ID
-opusclip collections create --name "Best Clips"
-opusclip collections add-clip --id COL_ID --content-id PROJECT_ID.CLIP_ID
-opusclip collections export --id COL_ID
+opusclip project create --file video.mp4 --title "Interview" --model ClipBasic
+opusclip clip list --project PROJECT_ID
+opusclip collection create --name "Best Clips"
+opusclip collection add-clip --id COL_ID --content-id PROJECT_ID.CLIP_ID
+opusclip collection export --id COL_ID
 ```
 
 ### Clip, curate, and share
 ```bash
-opusclip submit --url "https://youtube.com/watch?v=..." --durations "30,60,90"
-opusclip list --project PROJECT_ID --summary
+opusclip project create --url "https://youtube.com/watch?v=..." --durations "30,60,90"
+opusclip clip list --project PROJECT_ID
 
 # Understand clip content
-opusclip describe --transcript --project PROJECT_ID --clip CLIP_ID
+opusclip clip get --transcript --project PROJECT_ID --clip CLIP_ID
 
 # Visual review
-opusclip storyboard --project PROJECT_ID --clip CLIP_ID
+opusclip clip storyboard --project PROJECT_ID --clip CLIP_ID
 
 # Share
-opusclip share --project PROJECT_ID
+opusclip project share --project PROJECT_ID
 ```
 
 ### Clip, generate copy, and post to social
 
 ```bash
 # 1. Submit and get clips
-opusclip submit --url "https://youtube.com/watch?v=..." --durations "30,60,90"
-opusclip list --project PROJECT_ID --summary
+opusclip project create --url "https://youtube.com/watch?v=..." --durations "30,60,90"
+opusclip clip list --project PROJECT_ID
 
 # 2. See where you can post
-opusclip post accounts
+opusclip post account list
 
 # 3. Generate platform-optimized copy
-opusclip post generate-copy --project PROJECT_ID --clip CLIP_ID --account ACCOUNT_ID --prompt "witty and engaging"
-opusclip post copy-status --job JOB_ID
+opusclip post copy create --project PROJECT_ID --clip CLIP_ID --account ACCOUNT_ID --prompt "witty and engaging"
+opusclip post copy get --job JOB_ID
 
 # 4a. Publish immediately
-opusclip post publish --project PROJECT_ID --clip CLIP_ID --account ACCOUNT_ID --title "Check this out!"
+opusclip post create --project PROJECT_ID --clip CLIP_ID --account ACCOUNT_ID --title "Check this out!"
 
 # 4b. Or schedule for later
 opusclip post schedule --project PROJECT_ID --clip CLIP_ID --account ACCOUNT_ID --title "Check this out!" --at 2026-03-25T14:00:00Z
@@ -408,17 +411,17 @@ opusclip post cancel --schedule SCHEDULE_ID
 
 ```bash
 # Server-side edit (censor / apply)
-opusclip edit-clip censor --project PROJECT_ID --clip CLIP_ID --beep
+opusclip clip edit censor --project PROJECT_ID --clip CLIP_ID --beep
 
 # Wait for the re-render
 while :; do
-  opusclip describe --project PROJECT_ID --clip CLIP_ID \
+  opusclip clip get --project PROJECT_ID --clip CLIP_ID \
     | jq -e '.render_pending != true' >/dev/null && break
   sleep 10
 done
 
 # Post the edited clip
-opusclip post publish --project PROJECT_ID --clip CLIP_ID --account ACCOUNT_ID --title "..."
+opusclip post create --project PROJECT_ID --clip CLIP_ID --account ACCOUNT_ID --title "..."
 ```
 
 ## Constraints

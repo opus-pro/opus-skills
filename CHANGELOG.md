@@ -1,5 +1,20 @@
 # Changelog
 
+## 3.2.0 — resource + verb command shape
+
+The CLI adopts a **resource + verb** subcommand tree (`opusclip project create`, `opusclip clip list`, `opusclip clip edit get`), matching REST-style CLIs like `git` and `linear`. Highlights:
+
+- `project create` unifies `submit` (remote URL) and `upload` (local `--file`) under one verb.
+- `clip get` replaces `describe`; `clip edit` replaces `edit-clip`; `collection` replaces `collections`; `template list` replaces `templates`; `thumbnail create` replaces bare `thumbnail`.
+- Social posting: `post create` (was `publish`), `post account list` (was `accounts`), `post copy create|get` (was `generate-copy`/`copy-status`).
+- **Every legacy bare verb still works as an alias** — existing scripts and agents don't break. The resource + verb forms are now canonical in docs and tests.
+- The MCP tool names are unchanged (deliberately flat); the two surfaces share one taxonomy, expressed natively per surface.
+- `help` now self-documents in the `Commands:` block (`help | --help | -h`), matching how `version` already listed itself.
+
+Also re-syncs `.codex-plugin/plugin.json` to the release version (it had been stuck at 2.2.7 since the 3.0.0 cutover — the exact manifest drift the build-SHA provenance scheme exists to catch).
+
+CLI source: opus-pro/clip-apps `apps/opusclip-cli` (AGE-302 + #14410); bundle BUILD_SHA `647b3d6630`.
+
 ## 3.1.0 — `usage` command: check your API cap
 
 Adds `opusclip usage` — the first new command since the 3.0.0 CLI rebuild. It reports how much of the org's monthly API cap is used and how close it is to the limit:

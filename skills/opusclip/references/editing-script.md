@@ -7,12 +7,12 @@ The CLI does **not** construct EditingScripts. You — the agent reading this �
 ## TL;DR — the loop
 
 ```
-opusclip edit-clip get --project P --clip C --output current.json
+opusclip clip edit get --project P --clip C --output current.json
        ↓ inspect current.json — confirm tracks, sections, ranges
        ↓ build edited.json by adapting one of the samples below
-opusclip edit-clip apply --project P --clip C --script edited.json
+opusclip clip edit apply --project P --clip C --script edited.json
        ↓ returns { jobId } immediately
-opusclip describe --project P --clip C
+opusclip clip get --project P --clip C
        ↓ poll until renderAsVideoFile.pending == false
        ↓ uriForExport now points at the new mp4
 ```
@@ -129,7 +129,7 @@ After:
 Worked jq for the single-word case (`gsub` runs over every `text` field, matching inside words too):
 
 ```bash
-opusclip edit-clip get --project P --clip C --output current.json
+opusclip clip edit get --project P --clip C --output current.json
 jq '
   .editingScript
   | .tracks |= map(
@@ -140,7 +140,7 @@ jq '
       else . end
     )
 ' current.json > edited.json
-opusclip edit-clip apply --project P --clip C --script edited.json
+opusclip clip edit apply --project P --clip C --script edited.json
 ```
 
 Notes:
@@ -250,7 +250,7 @@ The same shape applies to `KeyFrameTrack` (walk `content.keyFrameContents` inste
 ### Edge cases worth reading before you ship the edit
 
 - **Multi-section clips.** Curated multi-clip projects can have several sections per track. The sample above handles only the first section. For multi-section clips, repeat the procedure for the relevant section(s) and then reflow `sectionTimeline.in` so later sections start at the previous section's `out` — otherwise the timeline has gaps.
-- **Extends.** If `end_ms` is larger than the section's current source duration, the engine silently no-ops the extend and publishes the original mp4. Clamp `end_ms` to the clip's `durationMs` (available via `opusclip describe`) before you do the math.
+- **Extends.** If `end_ms` is larger than the section's current source duration, the engine silently no-ops the extend and publishes the original mp4. Clamp `end_ms` to the clip's `durationMs` (available via `opusclip clip get`) before you do the math.
 - **Empty sections after trimming.** If the new window doesn't intersect any leaf at all, you'll end up with an empty `segments[]`. That's a sign the user requested a range outside the clip's content — surface it as an error rather than submitting.
 
 ---
@@ -322,7 +322,7 @@ Notes:
 - Keep `sectionTimeline` and `sectionDuration` from the original first section — replacing captions doesn't change the clip's length.
 - `color: 0` is the default caption color (the brand template applies its own palette downstream).
 
-Submit via `opusclip edit-clip apply --project P --clip C --script edited.json`.
+Submit via `opusclip clip edit apply --project P --clip C --script edited.json`.
 
 ---
 
@@ -332,7 +332,7 @@ Submit via `opusclip edit-clip apply --project P --clip C --script edited.json`.
 
 ```bash
 while :; do
-  state=$(opusclip describe --project P --clip C | jq -r '
+  state=$(opusclip clip get --project P --clip C | jq -r '
     "preview=\(.renderAsVideoPreview.pending // true) file=\(.renderAsVideoFile.pending // true)"')
   echo "$state"
   [[ "$state" == "preview=false file=false" ]] && break
@@ -350,4 +350,4 @@ The engine handles, for any edit:
 ## Reference
 
 - Endpoint reference: `references/api-reference.md`
-- For profanity censoring, prefer `opusclip edit-clip censor --beep` — it calls a dedicated endpoint and doesn't require you to construct an `EditingScript`.
+- For profanity censoring, prefer `opusclip clip edit censor --beep` — it calls a dedicated endpoint and doesn't require you to construct an `EditingScript`.
