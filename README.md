@@ -24,7 +24,7 @@ Point your agent at the repo above and ask it to install the skill — most agen
 
 </details>
 
-Then export your key (from <https://clip.opus.pro/dashboard>, Enterprise or Pro plan required) in the shell that launches your agent:
+Then export your key (from <https://clip.opus.pro/dashboard>, Enterprise, Pro, or Max plan required) in the shell that launches your agent:
 
 ```bash
 export OPUSCLIP_API_KEY=sk_...

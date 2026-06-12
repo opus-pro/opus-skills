@@ -11,7 +11,7 @@ Turn long-form videos into short clips via the OpusClip API.
 
 ## Prerequisites
 
-- `OPUSCLIP_API_KEY` must be set. If the user already has an Enterprise or Pro plan, they can copy their key from https://clip.opus.pro/dashboard. Otherwise, direct them to the [pricing page](https://www.opus.pro/pricing?utm_source=cli&utm_medium=opus) — API access requires Enterprise or Pro.
+- `OPUSCLIP_API_KEY` must be set. If the user already has an Enterprise, Pro, or Max plan, they can copy their key from https://clip.opus.pro/dashboard. Otherwise, direct them to the [pricing page](https://www.opus.pro/pricing?utm_source=cli&utm_medium=opus) — API access requires Enterprise, Pro, or Max.
 - The CLI at `scripts/opusclip` requires Node.js (>=18) — it is a bundled JS file
 
 ## CLI Quick Reference
