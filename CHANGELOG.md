@@ -1,5 +1,17 @@
 # Changelog
 
+## 3.3.0 — submit switches + video dubbing
+
+`project create` now exposes the submission controls the OpusClip dashboard offers, with the same names and the same combination rules:
+
+- `--skip-slicing` — keep the full video instead of cutting it into clips (import / reframe / caption the whole video).
+- `--enable-auto-hook` — add an AI-generated hook to the start of each clip (clipping runs only).
+- `--enable-caption` — burn captions into the rendered clips.
+- `--target-lang` — translate the rendered clips (text/captions) into a target language.
+- `--dubbing-language` — the video-dubbing quick start: one flag dubs the full video's voice into a target language. Charges dubbing credits (10 credits per minute of source video) on top of the submit charge.
+- Incoherent combinations are rejected up front with a clear error instead of being silently ignored (e.g. auto-hook with skip-slicing, dubbing with translate).
+- `--durations` is now optional (previously documented as required); omit it to let OpusClip choose clip lengths.
+
 ## 3.2.0 — resource + verb command shape
 
 The CLI adopts a **resource + verb** subcommand tree (`opusclip project create`, `opusclip clip list`, `opusclip clip edit get`), matching REST-style CLIs like `git` and `linear`. Highlights:

@@ -64,7 +64,7 @@ opusclip project create --url "https://youtube.com/watch?v=..." --durations "30,
 |------|-------------|
 | `--url` | (required unless `--file`) Video URL |
 | `--file` | Upload a local video instead of a URL (handles the full 4-step GCS upload flow automatically; same remaining flags) |
-| `--durations` | (required in practice) Target clip lengths in seconds, e.g. `"30,60,90"`. API rejects payloads without `curationPref.clipDurations`. |
+| `--durations` | Target clip lengths in seconds, e.g. `"30,60,90"`. Optional — omit to let OpusClip choose. Only applies to a clipping run (not with `--skip-slicing` / `--skip-curate`). |
 | `--model` | `ClipBasic` (talking-head) or `ClipAnything` (diverse) |
 | `--prompt` | Custom clipping prompt (ClipAnything only) |
 | `--keywords` | Comma-separated topic keywords (ClipBasic only) |
@@ -73,10 +73,17 @@ opusclip project create --url "https://youtube.com/watch?v=..." --durations "30,
 | `--template` | Brand template ID |
 | `--genre` | Video genre hint |
 | `--lang` | Source language code |
+| `--target-lang` | Translate the rendered clips into this language code (translated text/captions). For dubbed VOICE audio use `--dubbing-language` instead — the two cannot be combined |
+| `--dubbing-language` | Dub the video's voice into this language code (right-to-left languages not supported). Submits the video-dubbing quick start: the FULL video (no clipping) with dubbed audio — cannot be combined with clipping or render options. **Charges dubbing credits (10 credits per minute of source video) on top of the submit charge — tell the user before submitting** |
+| `--skip-slicing` | Keep the full video instead of cutting it into clips (import / reframe / caption the whole video) |
+| `--enable-auto-hook` | Add an AI-generated hook to the start of each clip. Clipping runs only — not compatible with `--skip-slicing` / `--skip-curate` |
+| `--enable-caption` | Burn captions into the rendered clips (omit to inherit the brand template / org default) |
 | `--title` | Video title metadata |
 | `--webhook` | Webhook URL for completion notification |
 | `--skip-curate` | Process original video without AI curation |
 | `--remove-filler` | Remove filler words |
+
+Incompatible combinations are rejected up front with a clear error (for example `--enable-auto-hook` with `--skip-slicing`, or `--dubbing-language` with `--target-lang`) — relay the error to the user and ask which they want instead of retrying blindly.
 
 ### clip list
 
