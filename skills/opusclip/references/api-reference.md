@@ -8,6 +8,7 @@ Rate limit: 30 req/min. Max video: 10h / 30GB. Max concurrent: 50 projects.
 
 - [Create Project](#create-project)
 - [Get Clips](#get-clips)
+- [Duplicate Clip](#duplicate-clip)
 - [Share Project](#share-project)
 - [Brand Templates](#brand-templates)
 - [Upload Video](#upload-video)
@@ -74,6 +75,18 @@ Query params:
 Additional headers: `x-opus-org-id: <ORG_ID>` (optional).
 
 Returns a list of clips with IDs and export URIs.
+
+---
+
+## Duplicate Clip
+
+**POST** `/exportable-clips/{clipFullId}/duplicate`
+
+Duplicate a single clip within its project. `clipFullId` is the composite `{projectId}.{clipId}`. No request body.
+
+Creates an independent copy titled `<title> (Copy)` — a server-side copy of the already-rendered clip (no re-render) — and returns the new clip in the same shape as [Get Clips](#get-clips), so it can be edited, exported, or posted like any other clip.
+
+**Cost:** Free — no credit charge. Not idempotent: each call creates another copy.
 
 ---
 

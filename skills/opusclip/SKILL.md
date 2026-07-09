@@ -31,6 +31,7 @@ opusclip clip edit <verb> [flags]             Server-side clip edits (charged, r
   get             Fetch EditingScript JSON for round-trip edits (beta — pricing may change)
   apply           Submit an edited EditingScript directly (beta — pricing may change)
   censor          Profanity censor (dictionary-based; --beep adds sound effect) (beta — pricing may change)
+opusclip clip duplicate --project ID --clip CID   Duplicate a clip into a "(Copy)" (free, server-side)
 opusclip clip trim --project ID --clip CID --start S --end E   Local ffmpeg trim (no API call, no captions)
 opusclip clip storyboard --project ID --clip CID   Generate 2x2 frame preview (requires ffmpeg)
 opusclip collection <verb> [options]          Manage collections (list, clips, create, export, add-clip)
@@ -258,6 +259,23 @@ opusclip clip trim --project PROJECT_ID --clip CLIP_ID --start 3 --end 50 --outp
 | `--start` | (required) Start time in seconds |
 | `--end` | (required) End time in seconds |
 | `--output` | Custom output path (default: `/tmp/opusclip-trimmed-{clipId}.mp4`) |
+
+### clip duplicate
+
+Duplicate a clip within its project. Creates an independent copy titled `<title> (Copy)` that can be edited or exported without touching the original — the server deep-copies the already-rendered clip, so the copy is ready immediately.
+
+**Cost:** Free — no credit charge (server-side copy of the rendered clip, no re-render).
+
+```bash
+opusclip clip duplicate --project PROJECT_ID --clip CLIP_ID
+```
+
+| Flag | Description |
+|------|-------------|
+| `--project` | (required) Project ID |
+| `--clip` | (required) Clip ID |
+
+Returns the new clip in the **same shape as `clip list`** (same JSON fields), so you can pipe it straight into a follow-up `clip edit` / `post create`. Not idempotent — each call creates another copy.
 
 ### post
 
