@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.4.0 — duplicate clip
+
+`clip duplicate` (also `opusclip_duplicate_clip` on MCP, `POST /exportable-clips/{clipFullId}/duplicate` on REST) copies a clip within its project, creating an independent `<title> (Copy)` that can be edited, exported, or posted without touching the original.
+
+- It's a server-side copy of the already-rendered clip — ready immediately, no re-render — and returns the new clip in the same shape as `clip list`.
+- Free: no credit charge (unlike `clip edit`, which re-renders). Not idempotent — each call creates another copy.
+- Bundle rebuilt from clip-apps main; all three plugin manifests bumped to 3.4.0.
+
+CLI source: opus-pro/clip-apps `apps/opusclip-cli` (AGE-504 + #15184); bundle BUILD_SHA `c0f4572466`.
+
 ## 3.3.0 — submit switches + video dubbing
 
 `project create` now exposes the submission controls the OpusClip dashboard offers, with the same names and the same combination rules:

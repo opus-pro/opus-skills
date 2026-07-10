@@ -1,6 +1,6 @@
 {
   "name": "opusclip",
-  "version": "3.3.0",
+  "version": "3.4.0",
   "description": "Turn long-form videos into short clips and post them to social platforms via the OpusClip API.",
   "skills": "./skills/",
   "interface": {
