@@ -25,8 +25,9 @@ opusclip project list [--page N]              List the org's clip projects (most
 opusclip project share --project ID           Share project publicly
 opusclip project transcript --project ID      Get the source-video transcript (paragraphs + word timing in ms)
 opusclip project preview --project ID [--output PATH]  Generate HTML preview and open in browser
-opusclip clip list --project ID               List a project's clips
+opusclip clip list --project ID               List a project's clips (preview URLs; HD via clip export)
 opusclip clip get --project ID --clip CID     Get clip details (transcript, layout info)
+opusclip clip export --project ID --clip CID  Get the HD download URL for one clip (ready|rendering|unavailable)
 opusclip clip edit <verb> [flags]             Server-side clip edits (charged, re-renders the clip) (beta — pricing may change)
   get             Fetch EditingScript JSON for round-trip edits (beta — pricing may change)
   apply           Submit an edited EditingScript directly (beta — pricing may change)
@@ -102,6 +103,29 @@ To list the clips in a collection, use `collection clips --id COLLECTION_ID`.
 Clips already include human-readable fields (title, description, hashtags, scores) by default. Display clips with their title and description rather than just clip IDs.
 
 The output contains `project_id` and `clip_id` as separate fields. Use `clip_id` (e.g. `0RiWBs5xuF`) for `--clip` flags, not the composite ID.
+
+`clip list` returns the `preview_url` (the watchable low-res artifact) and thumbnail — **not** the HD download URL. To download the HD file for a clip, use `clip export` (one clip) or `collection export` (a whole collection).
+
+### clip export
+
+Get the HD download URL for a single clip. This is the explicit export step — `clip list` / `clip get` are preview-only, mirroring the web app where the HD link appears only after you click Export.
+
+```bash
+opusclip clip export --project PROJECT_ID --clip CLIP_ID
+```
+
+| Flag | Description |
+|------|-------------|
+| `--project` | (required) Project ID |
+| `--clip` | (required) Clip ID |
+
+Returns `{project_id, clip_id, status, export_url?}`:
+
+- `status: "ready"` — `export_url` is the HD mp4, download it.
+- `status: "rendering"` — an HD render is in flight; call `clip export` again to poll (there is no separate poll command).
+- `status: "unavailable"` — no HD artifact exists and nothing is rendering. This is a **final** answer (do not loop) — e.g. a preview-only plan.
+
+For many clips at once, add them to a collection and use `collection export`.
 
 ### project list
 
@@ -193,7 +217,7 @@ opusclip clip edit censor          --project PID --clip CID [--beep]
 >
 > The `caption-fix`, `caption-replace`, and server-side `trim` sub-verbs were removed (they hand-rolled EditingScripts in the CLI and drifted from the engine). For those edits use the `get` -> edit the EditingScript -> `apply` round-trip; see `references/editing-script.md` for worked recipes. `censor` is the one remaining convenience verb.
 
-`apply` / `censor` return `{jobId}`. Poll status via `opusclip clip get --project PID --clip CID` — `render_pending` is `true` while the re-render runs (absent or false when done), and `export_url` then points at the new mp4.
+`apply` / `censor` return `{jobId}`. Poll status via `opusclip clip get --project PID --clip CID` — `render_pending` is `true` while the re-render runs (absent or false when done). Once it is done, get the HD mp4 with `opusclip clip export --project PID --clip CID`.
 
 For a caption typo or a trim, fetch the script with `clip edit get`, edit the relevant `textElement.text` or timing fields, then `clip edit apply --script FILE`. See `references/editing-script.md`. (`opusclip clip trim` remains as a free, instant, no-caption ffmpeg cut on the preview mp4.)
 
@@ -214,7 +238,7 @@ opusclip clip get --layout --project PROJECT_ID --clip CLIP_ID
 | `--transcript` | Show only transcript text |
 | `--layout` | Show only layout/framing info |
 
-Without `--transcript` or `--layout`, the default output includes content fields (`title`, `description`, `transcript`, `hashtags`, `keywords`, `score`, `duration_sec`, `aspect`), media URLs (`preview_url`, `export_url`), and `render_pending` (`true` while a re-render is in flight; absent or false when done) — what powers re-render polling. Use `--transcript` when you only need the spoken text. Use `--layout` to check current framing before suggesting layout changes.
+Without `--transcript` or `--layout`, the default output includes content fields (`title`, `description`, `transcript`, `hashtags`, `keywords`, `score`, `duration_sec`, `aspect`), the `preview_url` (the watchable low-res artifact), and `render_pending` (`true` while a re-render is in flight; absent or false when done) — what powers re-render polling. The HD download URL is **not** here — use `clip export` for that. Use `--transcript` when you only need the spoken text. Use `--layout` to check current framing before suggesting layout changes.
 
 Polling a re-render (after any `clip edit` sub-verb):
 
