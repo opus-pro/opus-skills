@@ -5,14 +5,14 @@
   },
   "metadata": {
     "description": "Official OpusClip plugins for AI coding agents — skill for OpusClip",
-    "version": "2.2.7"
+    "version": "3.6.0"
   },
   "plugins": [
     {
       "name": "opusclip",
       "source": "./skills/opusclip",
       "description": "Turn long-form videos into short clips and post them to social platforms via the OpusClip API. Ships a skill that drives the API via a bundled bash CLI.",
-      "version": "2.2.7",
+      "version": "3.6.0",
       "author": {
         "name": "OpusClip"
       },

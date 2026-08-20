@@ -29,14 +29,16 @@ opusclip clip list --project ID               List a project's clips (preview UR
 opusclip clip get --project ID --clip CID     Get clip details (transcript, layout info)
 opusclip clip export --project ID --clip CID  Get the HD download URL for one clip (ready|rendering|unavailable)
 opusclip clip edit <verb> [flags]             Server-side clip edits (charged, re-renders the clip) (beta — pricing may change)
-  get             Fetch EditingScript JSON for round-trip edits (beta — pricing may change)
-  apply           Submit an edited EditingScript directly (beta — pricing may change)
+  ops             Named edit operations, applied in order, one re-render (beta — pricing may change)
+  get             Fetch EditingScript JSON for round-trip edits (escape hatch) (beta — pricing may change)
+  apply           Submit an edited EditingScript directly (escape hatch) (beta — pricing may change)
   censor          Profanity censor (dictionary-based; --beep adds sound effect) (beta — pricing may change)
 opusclip clip duplicate --project ID --clip CID   Duplicate a clip into a "(Copy)" (free, server-side)
 opusclip clip trim --project ID --clip CID --start S --end E   Local ffmpeg trim (no API call, no captions)
 opusclip clip storyboard --project ID --clip CID   Generate 2x2 frame preview (requires ffmpeg)
 opusclip collection <verb> [options]          Manage collections (list, clips, create, export, add-clip)
 opusclip post <verb> [options]                Social posting (create, schedule, cancel)
+  list            List scheduled/published posts (--project, or an --from/--to window)
   account list    List connected social accounts
   copy create     Generate AI-optimized post copy
   copy get        Poll for generated copy result
@@ -205,7 +207,49 @@ Destructive/complex collection operations (deleting a collection, removing a cli
 >
 > Never run `clip edit` or `post schedule` in a loop without user confirmation each iteration.
 
-Server-side edits to an existing clip. All sub-verbs except `get` re-render the clip (charged, beta caps apply). The CLI does the EditingScript walking client-side; the API is a generic passthrough that mirrors the web editor's Save action. See `references/editing-script.md` for the mutation paths and recipes.
+Server-side edits to an existing clip. Every sub-verb except `get` re-renders the clip (charged, beta caps apply).
+
+**`ops` is the way to edit a clip.** It runs named operations against the clip's EditingScript and submits the result: one call, one re-render, however many ops. This is the same operation vocabulary the OpusClip MCP's `edit_clip` tool exposes, running the same implementation — the two surfaces cannot drift.
+
+```bash
+opusclip clip edit ops --project PID --clip CID --op NAME[:k=v,k=v] [--op ...] [--dry-run]
+```
+
+Ops apply in the order given. `--dry-run` applies them locally and reports what would change **without submitting and without re-rendering** — use it to check an op before spending a render.
+
+| Op | Parameters | What it does |
+|----|------------|--------------|
+| `trim_section` | `sectionIndex`, `keepFromSec`, `keepToSec` | Shortens one section. Seconds are measured from the **start of that section**, not of the clip. `keepToSec` alone is how you say "make this section N seconds long". |
+| `split_section` | `atClipSec` | Splits whichever section contains that moment into two. Seconds are measured from the start of the **whole clip**, as in the preview. No section index needed. |
+| `drop_section` | `sectionIndex` | Removes a section entirely. |
+| `reorder_sections` | `order=0,2,1` | Reorders sections. Must be a full permutation of the current 0-based indices. |
+| `delete_phrase` | `phrase`, `occurrence` | Cuts a spoken phrase out of **both the video and the captions**, not just the on-screen text. Matching ignores case, punctuation and extra whitespace. If the phrase appears more than once, pass `occurrence` (1-based) or `occurrence=all`. |
+| `set_style` | `captionColor`, `highlightColor`, `captionPosition`, `uppercase` | Caption appearance. These are **style settings, not script edits** — this is the only way to change caption colour, which is not present in the EditingScript at all. Several fields in one `set_style` count as one change. |
+
+A **section** is one cut of the clip, addressed by its 0-based `sectionIndex`. Every timeline op echoes the resulting sections back as `index` / `start_sec` / `end_sec`, so the next op can be addressed without re-reading the clip.
+
+Colours are `#RRGGBB`. `captionColor` is ordinary caption text; `highlightColor` is the accent on emphasised words (OpusClip defaults to bright green `#04f827`). `captionPosition` is `top`, `middle` or `bottom`. `uppercase` is `true` or `false`.
+
+> **Setting `highlightColor` does not switch highlighting on.**
+>
+> The op that toggles keyword highlighting (`set_keyword_highlight`) is available on the MCP `edit_clip` tool but **not yet in this CLI**. If highlighting is off for a clip, changing its colour has no visible effect. The same applies to `set_captions`, `set_emoji`, `remove_filler_words` and `remove_pauses` — MCP-only for now.
+
+```bash
+# make the first section 8 seconds long, then drop the third
+opusclip clip edit ops --project PID --clip CID \
+  --op trim_section:sectionIndex=0,keepToSec=8 \
+  --op drop_section:sectionIndex=2
+
+# cut a phrase, and put white uppercase captions at the top
+opusclip clip edit ops --project PID --clip CID \
+  --op 'delete_phrase:phrase=you know what I mean' \
+  --op 'set_style:captionColor=#FFFFFF,uppercase=true,captionPosition=top'
+
+# check what an op would do, render nothing
+opusclip clip edit ops --project PID --clip CID --op drop_section:sectionIndex=1 --dry-run
+```
+
+#### Escape hatch: `get` / `apply` / `censor`
 
 ```bash
 opusclip clip edit get             --project PID --clip CID [--output FILE]
@@ -213,13 +257,12 @@ opusclip clip edit apply           --project PID --clip CID --script FILE
 opusclip clip edit censor          --project PID --clip CID [--beep]
 ```
 
-> **caption edits / trims**
->
-> The `caption-fix`, `caption-replace`, and server-side `trim` sub-verbs were removed (they hand-rolled EditingScripts in the CLI and drifted from the engine). For those edits use the `get` -> edit the EditingScript -> `apply` round-trip; see `references/editing-script.md` for worked recipes. `censor` is the one remaining convenience verb.
+For an edit `ops` does not cover, fetch the EditingScript, modify it, and submit it back; see `references/editing-script.md` for the mutation paths and recipes. **Prefer `ops` wherever it applies** — hand-editing a ~1400-line script is how a structurally broken script once shipped, rendered, and stayed green for two weeks. `censor` is a dictionary-based profanity pass and remains a convenience verb.
 
-`apply` / `censor` return `{jobId}`. Poll status via `opusclip clip get --project PID --clip CID` — `render_pending` is `true` while the re-render runs (absent or false when done). Once it is done, get the HD mp4 with `opusclip clip export --project PID --clip CID`.
+> The `caption-fix`, `caption-replace`, and server-side `trim` sub-verbs were removed for the reason `ops` now exists: they hand-rolled EditingScripts in the CLI and drifted from the engine. (`opusclip clip trim` remains as a free, instant, no-caption ffmpeg cut on the preview mp4.)
 
-For a caption typo or a trim, fetch the script with `clip edit get`, edit the relevant `textElement.text` or timing fields, then `clip edit apply --script FILE`. See `references/editing-script.md`. (`opusclip clip trim` remains as a free, instant, no-caption ffmpeg cut on the preview mp4.)
+`ops` / `apply` / `censor` return `{job_id}` (absent on `--dry-run`, which submits nothing). Poll status via `opusclip clip get --project PID --clip CID` — `render_pending` is `true` while the re-render runs (absent or false when done). Once it is done, get the HD mp4 with `opusclip clip export --project PID --clip CID`.
+
 
 ### clip get
 
