@@ -1,5 +1,37 @@
 # Changelog
 
+## 3.6.0 — `clip edit ops`: named edit operations
+
+`clip edit ops` replaces hand-editing the EditingScript for the edits it covers. Operations are named, applied in order, and cost **one re-render for the whole batch**:
+
+- **Timeline** — `trim_section`, `split_section`, `drop_section`, `reorder_sections`. A section is one cut of the clip, addressed by 0-based `sectionIndex`; every op echoes the resulting sections back as `index` / `start_sec` / `end_sec`, so the next op can be addressed without re-reading the clip.
+- **Transcript** — `delete_phrase` cuts a spoken phrase out of *both* the video and the captions (matching ignores case, punctuation and whitespace; `occurrence` picks one when it repeats). `replace_phrase` fixes the caption *text* — a typo, a misheard word — without touching the video or its timing; the replacement must have the same number of words, because each spoken word keeps its own timing. Matching is script-aware: Chinese, Japanese and Korean match per character.
+- **Style** — `set_style` sets `captionColor`, `highlightColor`, `captionPosition`, `uppercase`. These are render settings, not script edits — this is the only way to change caption colour, which is not in the EditingScript at all.
+- **Title cards** — `add_text_overlay` / `set_text_overlay` / `remove_text_overlay` lay text over the video (the clip keeps its length), addressed by `overlayIndex`, 0-based in time order. A card renders in the product's own style — bold black text on a white rounded box, the same element the auto-hook uses — and a project's auto-hook is an ordinary overlay here, so removing the hook is `remove_text_overlay`.
+- **Emoji** — `remove_emoji` / `move_emoji` address one emoji **by the time it appears**, not by index, and leave the rest alone (distinct from the MCP's whole-layer `set_emoji` toggle). Miss the moment and the error lists the times at which emoji do appear.
+- `--dry-run` applies the ops locally and reports what would change, submitting nothing and rendering nothing. With **no** `--op` at all it becomes a capability read: it lists the tracks the clip carries, so an agent can tell what is editable before trying an op and being refused.
+
+This is the same operation vocabulary the OpusClip MCP's `edit_clip` tool exposes, running the **same implementation** (`@shared/editor-render`) — the two surfaces cannot drift. Hand-editing a ~1400-line script is how a structurally broken script once shipped, rendered, and stayed green for two weeks; `ops` exists to make that class of edit unrepresentable. `clip edit get` / `apply` remain as the escape hatch for anything the vocabulary does not cover.
+
+Not yet in the CLI (MCP `edit_clip` only): `set_captions`, `set_emoji`, `set_keyword_highlight`, `remove_filler_words`, `remove_pauses`. Note that `set_style`'s `highlightColor` sets the accent colour but does not switch highlighting on.
+
+Also in this release:
+
+- `post list` — list scheduled/published posts by `--project`, or over an `--from`/`--to` window (either bound alone is open-ended). The `schedule_id` it returns feeds `post cancel`.
+- **Fixes a stale marketplace version.** `.claude-plugin/marketplace.json` had been pinned at `2.2.7` since the 3.0.0 cutover while the three plugin manifests moved on — the same hand-synced-version drift the build-SHA provenance scheme exists to catch, and the version a marketplace consumer actually reads. All four now say `3.6.0`.
+
+CLI source: opus-pro/clip-apps `apps/opusclip-cli` (AGE-478: #16571 + #16610 + #16844 + #16846); bundle BUILD_SHA `64c29ecdd4`.
+
+## 3.5.0 — preview-first agent surface + explicit clip export
+
+*(Backfilled: 3.5.0 shipped without a changelog entry.)*
+
+- `clip list` returns the **preview** URL — the watchable low-res artifact — rather than an HD link, so listing clips never implies a render.
+- `clip export` becomes the explicit, separate step that yields the HD download URL, reporting `ready` / `rendering` / `unavailable`. HD renders on demand rather than eagerly.
+- `clip export` unwrapping was made robust to bare-array response shapes.
+
+CLI source: opus-pro/clip-apps `apps/opusclip-cli` (AGE-520 + AGE-541); bundle BUILD_SHA `e88744ef18`.
+
 ## 3.4.0 — duplicate clip
 
 `clip duplicate` (also `opusclip_duplicate_clip` on MCP, `POST /exportable-clips/{clipFullId}/duplicate` on REST) copies a clip within its project, creating an independent `<title> (Copy)` that can be edited, exported, or posted without touching the original.
