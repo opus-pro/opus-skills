@@ -38,6 +38,35 @@ export OPUSCLIP_API_KEY=sk_...
 - **`skills/opusclip/scripts/opusclip`** — bash CLI wrapping the OpusClip REST API + ffmpeg local utilities.
 - **`skills/opusclip/references/api-reference.md`** — endpoint schemas, request/response shapes.
 
+## Copy Video Style
+
+`skills/copy-video-style/` is a standalone skill. Give your agent your footage, a reference video or link, and the aspects to borrow. It uses Gemini understanding through OpusClip MCP, checks the actual frames, then creates and reviews the video locally. It does not require a plugin install or an OpusClip editor project.
+
+Install for your agent (Node.js and the agent must be available):
+
+```bash
+npx skills add opus-pro/opus-skills --skill copy-video-style --agent codex --global
+# For Claude Code, replace codex with claude-code.
+```
+
+Connect MCP separately:
+
+```bash
+# Codex CLI/App
+codex mcp add opusclip --url https://mcp.opus.pro/mcp
+codex mcp login opusclip
+
+# Claude Code
+claude mcp add --transport http --scope user opusclip https://mcp.opus.pro/mcp
+# Open Claude Code and run /mcp to authenticate OpusClip.
+```
+
+Complete OAuth sign-in and select your organization in the agent's connection flow. An API key for the existing clipping CLI does not authenticate this MCP connection. Restart the agent session after installing. Video understanding uses OpusClip credits; local editing uses your agent and local tools. The connected backend and account must expose `opusclip_analyze_media`. If it is absent or disabled, the agent must explain that limitation rather than claim Gemini ran.
+
+Example request:
+
+> Use copy-video-style with my footage and this reference. Borrow its caption treatment, pacing and framing, keep my message intact, and deliver a local MP4 plus an editable project.
+
 ## Develop
 
 ```bash
