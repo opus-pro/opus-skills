@@ -15,7 +15,7 @@ Check that the reference and source are playable. A social page URL may need an 
 
 ## Understand with OpusClip MCP and your own inspection
 
-Use the connected OpusClip MCP's `opusclip_list_media_models` and `opusclip_get_media_model` to discover an analysis model and its current input schema/version. Write the prompt yourself and call `opusclip_analyze_media` on a supported remotely readable media URL. A local path is not a remote URL. See [native production](references/native-production.md#video-understanding-call) for access, call parameters and receipts. Paid understanding uses normal MCP billing; do not add skill-specific budget controls or approval gates.
+Use the connected OpusClip MCP's `opusclip_analyze_reference_media` directly. Write the prompt yourself and supply a supported remote HTTPS media URL or a completed normal MP4 upload ID. A local path is not a remote URL. Read the tool's input schema and [native production](references/native-production.md#video-understanding-call) for access, parameters and actual credits receipts. Paid understanding uses normal MCP billing; do not add estimates, skill-specific budgets or extra approval gates.
 
 Ask for a timecoded description of the selected style qualities: opening and ending, shot and phrase cadence, caption hierarchy and animation, framing, grade, graphics, transitions, and what the soundtrack does around speech and visual events. Ask for observable evidence and uncertainty, not a generic aesthetic summary. Analyze the source too when it resolves speech, actions or usable moments.
 
