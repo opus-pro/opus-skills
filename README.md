@@ -46,7 +46,7 @@ Copy Video Style is a separate skill inside the existing OpusClip package, along
 Install or update the OpusClip package using the installation methods above. To install both skills directly (Node.js and the agent must be available):
 
 ```bash
-npx skills add opus-pro/opus-skills --skill opusclip copy-video-style --agent codex --global
+npx --yes skills add opus-pro/opus-skills --skill opusclip copy-video-style --agent codex --global --yes
 # For Claude Code, replace codex with claude-code.
 ```
 
