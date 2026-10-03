@@ -1,11 +1,11 @@
 ---
 name: opusclip
-description: Turn long-form videos into short clips and post them to social platforms using the OpusClip API. Use when the user wants to clip a YouTube video, upload a local video for clipping, manage clip collections, list brand templates, share projects publicly, censor profanity, post clips to social media, schedule social posts, or any task involving OpusClip. Triggers on phrases like "clip this video", "create shorts", "opusclip", "make clips from video", "upload to opusclip", "post to youtube", "schedule post", "publish clip".
+description: Turn long-form videos into short clips and post them to social platforms using the OpusClip API. Use when the user wants to clip a YouTube video, upload a local video for clipping, manage clip collections, list brand templates, share projects publicly, censor profanity, post clips to social media, schedule social posts. Triggers on phrases like "clip this video", "create shorts", "opusclip", "make clips from video", "upload to opusclip", "post to youtube", "schedule post", "publish clip".
 ---
 
 # OpusClip
 
-Turn long-form videos into short clips via the OpusClip API.
+Turn long-form videos into short clips via the OpusClip API. For reference-driven local editing of the user's footage, use the separate `copy-video-style` skill when available.
 
 > **BETA — features and pricing are subject to change. API pricing may diverge from web pricing.**
 

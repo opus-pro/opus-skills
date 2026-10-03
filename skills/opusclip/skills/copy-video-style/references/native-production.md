@@ -2,11 +2,11 @@
 
 Use the chosen local renderer's supported features. The examples describe timing and media invariants rather than prescribing a renderer or an editing template.
 
-## Gemini understanding call
+## Video understanding call
 
 Use these tools only when exposed in the session; a documented tool is not proof of runtime availability. `opusclip_list_media_models({task: "analysis"})` discovers models. `opusclip_get_media_model({modelId})` reads the current input schema/version; calling it with `task: "analysis"` and complete `inputs` gives a free pre-call quote. Preserve the returned `modelSchemaVersion`; do not hardcode a model or price version.
 
-For a Gemini video model, inputs include `prompt`, `mediaUrl`, `mediaType: "video"`, and the actual `durationSeconds`; check the current schema for supported `fps`, `maxOutputTokens`, limits, and defaults. Probe the real source duration. A direct HTTPS media URL must be readable through the supported access mechanism. A local file needs an authorized upload/access path; do not pass its filesystem path as a URL or expose private footage publicly as an access workaround.
+For video understanding, inputs include `prompt`, `mediaUrl`, `mediaType: "video"`, and the actual `durationSeconds`; check the current schema for supported `fps`, `maxOutputTokens`, limits, and defaults. Probe the real source duration. A direct HTTPS media URL must be readable through the supported access mechanism. A local file needs an authorized upload/access path; do not pass its filesystem path as a URL or expose private footage publicly as an access workaround.
 
 Start `opusclip_analyze_media` with `{modelId, modelSchemaVersion, idempotencyKey, inputs}` and optional `confirmedCredits`. The key is a stable unique string of 8–128 characters for this exact call. Reuse it only for an identical retry; a changed prompt/model/media is a new call. Normal billing does not require `confirmedCredits`; omit it unless a per-call price was actually shown and accepted. Do not introduce a budget or confirmation workflow.
 
@@ -24,7 +24,7 @@ In FFmpeg, trim video/audio from the same source bounds and reset their timestam
 
 ## Timed captions
 
-Prefer an existing verified word-timed transcript; otherwise use available transcription/alignment and check it against the speech. Gemini can propose a transcript or timing, but its timestamps are hypotheses until verified. Retain original word times and create output times by mapping through the cut plan, removing words cut from the video. Check words that cross a cut instead of merely clipping their event windows.
+Prefer an existing verified word-timed transcript; otherwise use available transcription/alignment and check it against the speech. Media analysis can propose a transcript or timing, but its timestamps are hypotheses until verified. Retain original word times and create output times by mapping through the cut plan, removing words cut from the video. Check words that cross a cut instead of merely clipping their event windows.
 
 A project-wide transcript may use original-source milliseconds while the local target is an extracted or assembled excerpt. Read the supplied extraction manifest/source-to-local mapping before declaring that transcript unmatched. Record the original source offset and any assembled cuts. Select overlapping words for each mapped source interval and place them at its local offset, then map through the new edit timeline. Do not use whole-source timestamps as local clip times. Missing offline ASR alone is not a reason to abandon supplied timed source data; verify its mapping and disclose any remaining alignment/listening uncertainty.
 
