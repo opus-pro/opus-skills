@@ -4,7 +4,8 @@
   "description": "Turn long-form videos into short clips and post them to social platforms via the OpusClip API. Ships a skill that drives the OpusClip REST API via a bundled bash CLI.",
   "version": "3.6.0",
   "skills": [
-    "."
+    "./",
+    "./skills/copy-video-style"
   ],
   "configSchema": {
     "type": "object",

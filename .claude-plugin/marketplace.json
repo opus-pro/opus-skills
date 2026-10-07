@@ -20,7 +20,11 @@
       "repository": "https://github.com/opus-pro/opus-skills",
       "license": "MIT",
       "keywords": ["video", "clips", "social-media", "youtube", "tiktok", "opusclip"],
-      "category": "productivity"
+      "category": "productivity",
+      "skills": [
+        "./",
+        "./skills/copy-video-style"
+      ]
     }
   ]
 }

@@ -14,5 +14,9 @@
     "clips",
     "social-media",
     "opusclip"
+  ],
+  "skills": [
+    "./",
+    "./skills/copy-video-style"
   ]
 }
