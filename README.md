@@ -62,7 +62,7 @@ claude mcp add --transport http --scope user opusclip https://mcp.opus.pro/mcp
 # Open Claude Code and run /mcp to authenticate OpusClip.
 ```
 
-Complete OAuth sign-in and select your organization in the agent's connection flow. An API key for the existing clipping CLI does not authenticate this MCP connection. Restart the agent session after installing. Video understanding uses OpusClip credits; local editing uses your agent and local tools. The connected backend and account must expose `opusclip_understand_media` (called `opusclip_analyze_reference_media` on older servers). If authentication is required or expired, the agent should help you sign in and retry. If understanding is unavailable after tool discovery and authentication, the agent must explain the blocker; manual-only analysis requires your explicit choice. `opusclip_detect_video_regions` (formerly `opusclip_analyze_video`) detects spatial boxes for reframing and does not replace understanding.
+Complete OAuth sign-in and select your organization in the agent's connection flow. An API key for the existing clipping CLI does not authenticate this MCP connection. Restart the agent session after installing. Video understanding uses OpusClip credits; local editing uses your agent and local tools. The connected backend and account must expose `opusclip_analyze_reference_media`. If authentication is required or expired, the agent should help you sign in and retry. If understanding is unavailable after tool discovery and authentication, the agent must explain the blocker; manual-only analysis requires your explicit choice. `opusclip_analyze_video` detects spatial boxes for reframing and does not replace understanding.
 
 Example request:
 
