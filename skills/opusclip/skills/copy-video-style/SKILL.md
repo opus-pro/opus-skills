@@ -15,7 +15,11 @@ Check that the reference and source are playable. A social page URL may need an 
 
 ## Understand with OpusClip MCP and your own inspection
 
-Use the connected OpusClip MCP's `opusclip_analyze_reference_media` directly. Write the prompt yourself and supply a supported remote HTTPS media URL or a completed normal MP4 upload ID. A local path is not a remote URL. Read the tool's input schema and [native production](references/native-production.md#video-understanding-call) for access, parameters and actual credits receipts. Paid understanding uses normal MCP billing; do not add estimates, skill-specific budgets or extra approval gates.
+Discover and use the connected OpusClip MCP's `opusclip_analyze_reference_media` for prompt-based reference understanding. `opusclip_analyze_video` supplies spatial boxes and tracks for reframing an existing project, and cannot replace content, style or sound understanding. Use `opusclip_get_transcript` for word-level transcript timings in an OpusClip project.
+
+Complete understanding, or reuse a suitable completed result, before directing the edit. If the connector reports that sign-in or authorization is required or expired, tell the user which connector needs authentication and guide them through the host's login flow, then rediscover and retry the same understanding tool. A missing tool alone does not prove a login problem: discover the connected tool surface first. If understanding remains unavailable, explain the blocker and continue independent preparation; proceed with manual-only analysis only if the user explicitly chooses it. Frame inspection does not complete the understanding step. Read [native production](references/native-production.md#video-understanding-call) for discovery, authentication and recovery.
+
+Write the prompt yourself and supply a supported remote HTTPS media URL or a completed normal MP4 upload ID. A local path is not a remote URL. Read the tool's input schema for supported parameters. Paid understanding uses normal MCP billing; do not add estimates, skill-specific budgets or extra approval gates.
 
 Ask for a timecoded description of the selected style qualities: opening and ending, shot and phrase cadence, caption hierarchy and animation, framing, grade, graphics, transitions, and what the soundtrack does around speech and visual events. Ask for observable evidence and uncertainty, not a generic aesthetic summary. Analyze the source too when it resolves speech, actions or usable moments.
 
