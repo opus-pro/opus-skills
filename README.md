@@ -1,6 +1,6 @@
 # opus-skills
 
-A skill marketplace for [OpusClip](https://opus.pro) — adds video clipping, social posting, and more to your AI coding agent. The existing OpusClip package contains two skills: `opusclip` for clipping and publishing through the bundled API CLI, and `copy-video-style` for reference-driven local editing, with optional OpusClip MCP video understanding.
+A skill marketplace for [OpusClip](https://opus.pro) — adds video clipping, social posting, and more to your AI coding agent. The existing OpusClip package contains three skills: `opusclip` for clipping and publishing through the bundled API CLI; `copy-video-style` for reference-driven local editing, with optional OpusClip MCP video understanding; and `opusclip-media-generation` for generating voiceovers, music and short video clips through OpusClip MCP.
 
 > **BETA — features and pricing are subject to change. API pricing may diverge from web pricing.**
 
@@ -18,7 +18,7 @@ Point your agent at the repo above and ask it to install the skill — most agen
 | **Claude Code** | `/plugin marketplace add opus-pro/opus-skills` then `/plugin install opusclip@opus-skills` |
 | **Codex CLI / App** | `codex plugin marketplace add github:opus-pro/opus-skills`, then **Plugins** in TUI/App |
 | **OpenClaw** | `openclaw plugins install github:opus-pro/opus-skills/skills/opusclip` |
-| **Claude.ai** | Upload one skill folder per ZIP: `skills/opusclip/` for clipping, or `skills/opusclip/skills/copy-video-style/` for local editing, at Settings → Customize → Skills (Pro+) |
+| **Claude.ai** | Upload one skill folder per ZIP: `skills/opusclip/` for clipping, or `skills/opusclip/skills/copy-video-style/` for local editing, at Settings → Customize → Skills (Pro+). `skills/opusclip/skills/opusclip-media-generation/` needs an OpusClip MCP connection with generation, which the claude.ai directory connector does not include. |
 | **Claude Cowork** | Same zip upload as Claude.ai (propagates to Cowork) |
 | **Any host with `npx skills`** | `npx skills add opus-pro/opus-skills` |
 
@@ -38,15 +38,16 @@ export OPUSCLIP_API_KEY=sk_...
 - **`skills/opusclip/scripts/opusclip`** — bash CLI wrapping the OpusClip REST API + ffmpeg local utilities.
 - **`skills/opusclip/references/api-reference.md`** — endpoint schemas, request/response shapes.
 - **`skills/opusclip/skills/copy-video-style/SKILL.md`** — reference-driven local editing, with optional video understanding through OpusClip MCP.
+- **`skills/opusclip/skills/opusclip-media-generation/SKILL.md`** — voiceover, music and video generation through OpusClip MCP, with a quote and your approval before each paid call.
 
 ## Copy Video Style
 
-Copy Video Style is a separate skill inside the existing OpusClip package, alongside the `opusclip` clipping skill. Both share one package installation; no additional plugin or marketplace is needed. Give your agent your footage and a reference video or link. It scans the reference's frames, cuts and loudness locally, shows you what defines the style, and asks once which elements to copy, whether to add OpusClip video understanding for a few credits, and where any missing music or other assets should come from. Then it creates and reviews the video locally. It does not require an OpusClip editor project.
+Copy Video Style is a separate skill inside the existing OpusClip package, alongside the `opusclip` clipping skill and `opusclip-media-generation`. All three share one package installation; no additional plugin or marketplace is needed. Give your agent your footage and a reference video or link. It scans the reference's frames, cuts and loudness locally, shows you what defines the style, and asks once which elements to copy, whether to add OpusClip video understanding for a few credits, and where any missing music or other assets should come from. Then it creates and reviews the video locally. It does not require an OpusClip editor project.
 
-Install or update the OpusClip package using the installation methods above. To install both skills directly (Node.js and the agent must be available):
+Install or update the OpusClip package using the installation methods above. To install the skills directly (Node.js and the agent must be available):
 
 ```bash
-npx --yes skills add opus-pro/opus-skills --skill opusclip copy-video-style --agent codex --global --yes
+npx --yes skills add opus-pro/opus-skills --skill opusclip copy-video-style opusclip-media-generation --agent codex --global --yes
 # For Claude Code, replace codex with claude-code.
 ```
 
@@ -67,6 +68,16 @@ Complete OAuth sign-in and select your organization in the agent's connection fl
 Example request:
 
 > Use copy-video-style with my footage and this reference. Borrow its caption treatment, pacing and framing, keep my message intact, and deliver a local MP4 plus an editable project.
+
+## OpusClip Media Generation
+
+`opusclip-media-generation` generates a voiceover or narration (Gemini 3.8 Flash TTS), a music track (Lyria 3.5) or, when your connected server offers it, a short video clip (MiniMax H3 or Seedance 2.5) through the OpusClip MCP connection above. Each generation uses OpusClip credits at a fixed price. The agent quotes every request for free first and runs nothing until you approve its cost, asks for a total when several generations are planned and gets your yes for the planned list, and records every job in `generation.json`. It gives you a playable link for every result, because the agent cannot listen or watch, then downloads and checks the files locally. `copy-video-style` hands off to it when you choose to generate missing music, voiceover or shots.
+
+It ships in the same OpusClip package. The `npx skills add` command above installs it with the other two skills. Generation needs the MCP connection above and a plan with API access; the OpusClip connector in the claude.ai directory does not include it.
+
+Example request:
+
+> Use opusclip-media-generation to make a 30-second instrumental bed for my product video: upbeat, light percussion, about 110 BPM, with a clear build at 0:15. Quote it before you run it.
 
 ## Develop
 

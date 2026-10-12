@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.8.0 — `opusclip-media-generation`: generate voiceover, music and video clips
+
+- **New skill: `opusclip-media-generation`.** Generates a voiceover or narration with Gemini 3.8 Flash TTS (30 prebuilt voices, a designed voice from a description, or a returned `voiceKey`) and a music track with Lyria 3.5, through the OpusClip MCP's `opusclip_create_media_generation_job` and the read-only `opusclip_get_media_generation_job`. Video clips with MiniMax H3 (`hailuo-3`) or Seedance 2.5 (`seedance-2.5`) are covered for servers that offer them. Each reference maps common provider doc fields to the tool's own parameter names.
+- **Generation spends only what you approve.** Prices are fixed, and a job that definitely fails releases its hold. The agent quotes each request for free with `maxCredits: 0`, states the exact cost and waits for a yes, caps each paid call at its own quote, asks for a session total and one yes for the planned list when several generations are planned, makes one test output before a batch, polls uncertain jobs by ID instead of paying again, and records every job in `generation.json`. Narration is generated in one call so the voice stays consistent, and every output and sample comes with a playable link for you to review.
+- **`copy-video-style` hands missing assets to `opusclip-media-generation`.** When you choose generation for missing music, voiceover or shots, it passes a brief with each asset's role, duration, timing, mood and aspect ratio.
+- **Version.** All four manifests now say `3.8.0`, so marketplace installs pick up the new skill.
+
 ## 3.7.0 — `copy-video-style`: edit your footage in a reference video's style
 
 - **New skill: `copy-video-style`.** Give the agent your footage and a reference video, choose what to borrow (pacing, captions, framing, color, transitions, graphics or sound), and it makes the edit locally with FFmpeg or another installed renderer. Reference understanding uses the OpusClip MCP's `opusclip_analyze_reference_media`, billed in normal OpusClip credits; the result and actual charge are read back with `opusclip_get_reference_analysis`.
