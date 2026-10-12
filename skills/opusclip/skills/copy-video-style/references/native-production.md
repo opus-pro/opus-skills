@@ -2,6 +2,23 @@
 
 Use the chosen local renderer's supported features. The examples describe timing and media invariants rather than prescribing a renderer or an editing template.
 
+## Connect OpusClip MCP
+
+Video understanding needs the OpusClip MCP server at `https://mcp.opus.pro/mcp`, or another OpusClip server URL the user was given, such as a staging environment. The OpusClip connector in the claude.ai directory does not include `opusclip_analyze_reference_media`; if it is the only OpusClip server connected, ask the user to add this one too. Call `opusclip_whoami` to confirm who is signed in, which organization is selected and whether the account has API access.
+
+When it is missing, give the user the commands for their host and wait for them to finish:
+
+```bash
+# Claude Code: add the server, then run /mcp in Claude Code and authenticate OpusClip
+claude mcp add --transport http --scope user opusclip https://mcp.opus.pro/mcp
+
+# Codex: add the server, then sign in
+codex mcp add opusclip --url https://mcp.opus.pro/mcp
+codex mcp login opusclip
+```
+
+Sign-in uses OAuth in the browser, where the user also chooses an organization; an OpusClip API key for the clipping CLI does not authenticate this connection. A newly added server may appear only after the agent session restarts. If `opusclip_whoami` reports no API access, tell the user that understanding needs a plan with API access and continue locally. Never ask the user for tokens.
+
 ## Video understanding call
 
 When the user chooses deep understanding, discover `opusclip_analyze_reference_media` on the connected OpusClip MCP. Read the exposed input schema, build your prompt from the [template](reference-analysis.md#understanding-prompt) and call it directly; there is no model-catalog discovery, quote or price-confirmation step. Tool discovery is still necessary: a documented tool is not proof of runtime availability. Do not substitute `opusclip_analyze_video`; it returns reframing boxes, not media understanding.
