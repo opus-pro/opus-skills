@@ -1,6 +1,6 @@
 # opus-skills
 
-A skill marketplace for [OpusClip](https://opus.pro) — adds video clipping, social posting, and more to your AI coding agent. The existing OpusClip package contains two skills: `opusclip` for clipping and publishing through the bundled API CLI, and `copy-video-style` for reference-driven local editing with OpusClip MCP understanding.
+A skill marketplace for [OpusClip](https://opus.pro) — adds video clipping, social posting, and more to your AI coding agent. The existing OpusClip package contains two skills: `opusclip` for clipping and publishing through the bundled API CLI, and `copy-video-style` for reference-driven local editing, with optional OpusClip MCP video understanding.
 
 > **BETA — features and pricing are subject to change. API pricing may diverge from web pricing.**
 
@@ -37,7 +37,7 @@ export OPUSCLIP_API_KEY=sk_...
 - **`skills/opusclip/SKILL.md`** — when and how to call OpusClip. Triggers on "clip this video", "make shorts", "post to YouTube", etc.
 - **`skills/opusclip/scripts/opusclip`** — bash CLI wrapping the OpusClip REST API + ffmpeg local utilities.
 - **`skills/opusclip/references/api-reference.md`** — endpoint schemas, request/response shapes.
-- **`skills/opusclip/skills/copy-video-style/SKILL.md`** — reference-driven local editing with video understanding through OpusClip MCP.
+- **`skills/opusclip/skills/copy-video-style/SKILL.md`** — reference-driven local editing, with optional video understanding through OpusClip MCP.
 
 ## Copy Video Style
 
