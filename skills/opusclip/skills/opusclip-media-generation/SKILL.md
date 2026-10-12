@@ -5,14 +5,14 @@ description: Generate a voiceover, narration or text-to-speech, a music track or
 
 # OpusClip Media Generation
 
-Generate speech, music and short video clips with OpusClip MCP, then download and check them locally. Speech and music are paid in OpusClip credits at a fixed price: the quoted estimate is the charge. A job that definitely fails releases its hold in full; an uncertain one (`submission_unknown`) keeps it held for review. Treat the user's credits as their money: quote first, get a clear yes, and never spend beyond what they approved.
+Generate speech, music and short video clips with OpusClip MCP, then download and check them locally. Speech, music and video are paid in OpusClip credits at a fixed price: the quoted estimate is the charge. A job that definitely fails releases its hold in full; an uncertain one (`submission_unknown`) keeps it held for review. Treat the user's credits as their money: quote first, get a clear yes, and never spend beyond what they approved.
 
 ## Tools and models
 
 Two tools do the work:
 
-- `opusclip_create_media_generation_job` starts one paid job. `kind` is `speech` or `music`, and `video` when the tool's schema lists it; video then also needs `model`. `maxCredits` and `idempotencyKey` (8-128 characters) are required.
-- `opusclip_get_media_generation_job` reads a job by `jobId`. It is free and read-only; `waitSeconds` (0-20) waits on the server for the job to finish. It reads video jobs only when its description says so.
+- `opusclip_create_media_generation_job` starts one paid job. `kind` is `speech` or `music`, and `video` when the tool's schema lists it; video then also needs `prompt`, `model` and `durationSeconds`. `maxCredits` and `idempotencyKey` (8-128 characters) are required.
+- `opusclip_get_media_generation_job` reads a job by `jobId`. It is free and read-only; `waitSeconds` (0-20) waits on the server for the job to finish.
 
 | Kind | Model | Prompting docs |
 |---|---|---|
@@ -62,7 +62,7 @@ When copy-video-style hands off a missing asset, start from its brief: the asset
 
 ## Wait, deliver and verify
 
-The create call waits up to 20 seconds. While a job is `queued` or `running`, call the getter with `waitSeconds: 20`; never call the create tool to check status. If it is still queued or running after 20 minutes (30 for video), stop polling, give the user the `jobId` and its held credits, and do not resubmit. A `failed` or `submission_unknown` receipt is returned as a tool error, but it is still a receipt: read its `jobId`, `errorCode` and credits, record it, and follow its `errorCode` in billing. Only a result without a `jobId` means no receipt came back.
+The create call waits up to 20 seconds. While a job is `queued` or `running`, call the getter with `waitSeconds: 20`; never call the create tool to check status. If it is still queued or running after 20 minutes (45 for video), stop polling, give the user the `jobId` and its held credits, and do not resubmit. A `failed` or `submission_unknown` receipt is returned as a tool error, but it is still a receipt: read its `jobId`, `errorCode` and credits, record it, and follow its `errorCode` in billing. Only a result without a `jobId` means no receipt came back.
 
 You cannot listen to audio or watch video. Give the user the playable URL of every output, samples included, and ask them to review it before you build on it. Never claim you heard or watched a result.
 

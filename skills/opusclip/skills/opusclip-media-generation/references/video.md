@@ -9,6 +9,7 @@ Read the provider guides for prompting: MiniMax [video generation](https://platf
 - `hailuo-3` by default: clips of 5-15 seconds at `768p` or `2k`.
 - `seedance-2.5` for clips of 16-30 seconds, or when the clip needs its own dialogue, music or sound effects (`generateAudio: true`).
 - Seedance rejects images that show a real person's face. Use `hailuo-3` for a first frame taken from footage of a person.
+- If `hailuo-3` is refused with `model_unavailable`, use `seedance-2.5` when the clip and frame allow it (4-30 seconds, no last frame, no real person's face in the first frame), and tell the user.
 
 Generate only the shots the edit needs, one shot per clip. Do not replace the user's own footage with generated clips.
 
@@ -16,21 +17,21 @@ Generate only the shots the edit needs, one shot per clip. Do not replace the us
 
 | Field | `hailuo-3` | `seedance-2.5` |
 |---|---|---|
-| `prompt` | Required | Required |
+| `prompt` | Required, at most 7000 characters | Required, at most 8000 characters |
 | `durationSeconds` | Required, 5-15 | Required, 4-30 |
 | `resolution` | `768p` (default) or `2k` | `480p` or `720p` (default) |
 | `aspectRatio` | `16:9` (default), `9:16`, `1:1`, `4:3`, `3:4`, `21:9` | same |
 | `firstFrameUrl` | Optional | Optional |
-| `lastFrameUrl` | Optional, needs `firstFrameUrl` | Check the schema |
+| `lastFrameUrl` | Optional, needs `firstFrameUrl` | Not available |
 | `generateAudio` | Not available | Optional, default silent |
 
-Use the field names and nesting in the tool's input schema; some options may sit inside `modelParams`, which accepts only the keys allowed for the chosen model. A wrong key or value is refused with the allowed values, before anything is charged.
+The tool refuses any other key, and a wrong value with the allowed values, before anything is charged.
 
 Leave `aspectRatio` out when you send `firstFrameUrl`; the frame's shape sets it. Otherwise set it explicitly for the edit, such as `9:16` for a vertical short. Frame images must be public HTTPS URLs the user already hosts. Local files are not supported; never upload the user's files to a third-party host to get a URL.
 
 Price grows with duration and resolution, so a longer or sharper clip is a new request with a new quote. A clip usually takes several minutes.
 
-Billing and error codes for video follow the tool's own description. If it says the actual cost is charged and the rest refunded, count `chargedCredits` from the receipt, not the estimate, and follow any video-specific `errorCode` actions it lists. Quote and approve exactly as for speech and music.
+The price is fixed: `durationSeconds` times the per-second rate for the resolution, so the quoted estimate is the charge. Billing and error codes follow [billing](billing.md). Quote and approve exactly as for speech and music.
 
 ## Write the prompt
 
@@ -46,7 +47,7 @@ Do not ask for real people, brands, logos or copyrighted characters. When copyin
 | `model` `dreamina-seedance-2-5-260628` | `model: "seedance-2.5"` |
 | `text` content item | `prompt` |
 | `duration` | `durationSeconds` (no model-chosen length) |
-| `resolution` `768P`, `2K`, `720p` | `resolution` `768p`, `2k`, `720p` |
+| `resolution` `768P`, `2K`, `480p`, `720p` | `resolution` `768p`, `2k`, `480p`, `720p` |
 | `ratio` | `aspectRatio` |
 | content role `first_frame` | `firstFrameUrl` |
 | content role `last_frame` (MiniMax) | `lastFrameUrl` |

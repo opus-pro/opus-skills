@@ -1,6 +1,6 @@
 # Billing
 
-Speech and music have a fixed price per request. The server quotes it before any work, holds that many credits when the job is admitted, charges the same amount on success and releases the hold on a definite failure; an uncertain job keeps its hold for review. There is no separate quote tool and no surprise overage, but every take, sample and retry with a new key is a new charge. Video billing follows the video tool's own description; see [video](video.md).
+Speech, music and video have a fixed price per request; a video's price is its duration times a per-second rate for its resolution. The server quotes it before any work, holds that many credits when the job is admitted, charges the same amount on success and releases the hold on a definite failure; an uncertain job keeps its hold for review. There is no separate quote tool and no surprise overage, but every take, sample and retry with a new key is a new charge.
 
 ## Quote, approve, run
 
@@ -23,17 +23,17 @@ Make one test output first, such as one shot or a short speech sample, and get t
 ## Retries and recovery
 
 - No receipt came back, for example after a timeout or lost connection: repeat the identical call with the same key. It returns the original job and never charges twice. A `failed` or `submission_unknown` receipt arrives as a tool error but is still a receipt; only a result without a `jobId` means no receipt came back.
-- A receipt came back with `queued` or `running`: poll `opusclip_get_media_generation_job` with its `jobId` and `waitSeconds: 20`. Never call the create tool to check status. After 20 minutes (30 for video), stop polling, give the user the `jobId` and its held credits, and do not resubmit.
+- A receipt came back with `queued` or `running`: poll `opusclip_get_media_generation_job` with its `jobId` and `waitSeconds: 20`. Never call the create tool to check status. After 20 minutes (45 for video), stop polling, give the user the `jobId` and its held credits, and do not resubmit.
 - A job is uncertain (`submission_unknown`) or its credits are pending review: do not resubmit with a new key. Give the user the `jobId`.
 - A job failed: follow the action the getter's description gives for its `errorCode`. A retry after a fix uses a new key, a new quote and a new yes, unless it is a listed asset whose quote fits the remaining session total.
 
 | `errorCode` | What to do |
 |---|---|
 | `credit_admission_rejected` | Tell the user they lack credits. After they add credits, use a new key. |
-| `content_policy` | Rewrite the text or prompt, then quote it with a new key. |
+| `content_policy` | Rewrite the text or prompt; for video, use a different `firstFrameUrl` (`seedance-2.5` refuses frames that show a real person's face, `hailuo-3` accepts them). Then quote it with a new key. |
 | `invalid_request` | Fix the inputs, for example design a new voice if a `voiceKey` expired, then use a new key. |
-| `provider_unavailable`, `dispatch_failed`, `admission_incomplete`, `output_storage_failed` | Nothing was charged. Retry later with a new key and a new quote, after the user agrees, or without asking for a listed asset whose new quote fits the remaining session total. |
-| `submission_unknown`, `credit_reservation_pending` | Credits may be held for review. Do not resubmit; give the user the `jobId`. |
+| `provider_unavailable`, `dispatch_failed`, `output_storage_failed` | Nothing was charged. Retry later with a new key and a new quote, after the user agrees, or without asking for a listed asset whose new quote fits the remaining session total. |
+| `submission_unknown`, `credit_reservation_pending`, `admission_incomplete` | Credits may be held for review. Do not resubmit; give the user the `jobId`. |
 
 ## Refusals
 
@@ -43,10 +43,18 @@ These come back as a tool error with no receipt and no `jobId`. Nothing was crea
 |---|---|
 | `idempotency_conflict` | The key belongs to a different request. Repeat the original request exactly, or use a new key and quote again. |
 | `generation_unavailable` | Generation is switched off for now. Tell the user. Existing jobs can still be read. |
-| `model_unavailable` | This kind cannot be priced right now. Tell the user and continue without it. |
+| `model_unavailable` | This kind or model cannot be priced right now. Tell the user and continue without it; for `hailuo-3`, see [video](video.md) for using `seedance-2.5` instead. |
 | `An API-enabled OpusClip account is required` | Explain that generation needs a plan with API access; see `opusclip_whoami`. |
 | `text is N weighted characters` | Shorten the script with the user. Do not split it. |
 | `speech requires ...` / `music requires ...` | Fix the fields. |
+| `video requires prompt, model and durationSeconds and takes no speech fields` | Add the missing fields and drop any speech fields. |
+| `durationSeconds must be 5-15 for hailuo-3 or 4-30 for seedance-2.5` | Change the duration, or switch to the model that allows it. |
+| `resolution must be 768p or 2k for hailuo-3, or 480p or 720p for seedance-2.5` | Use a resolution the chosen model offers. |
+| `aspectRatio cannot be combined with firstFrameUrl; the video takes the frame shape` | Drop `aspectRatio`. |
+| `lastFrameUrl is supported only by hailuo-3, together with firstFrameUrl` | Use `hailuo-3` with a `firstFrameUrl`, or drop `lastFrameUrl`. |
+| `generateAudio is supported only by seedance-2.5` | Drop `generateAudio`, or use `seedance-2.5`. |
+| `hailuo-3 accepts a prompt of at most 7000 characters` | Shorten the prompt. |
+| `Supply a public HTTPS image URL without credentials` | Use a public HTTPS frame URL the user already hosts. |
 | `Media generation job not found in this organization` | Check the `jobId`. Jobs belong to the organization the connection signed in with. |
 
 ## Receipt fields
