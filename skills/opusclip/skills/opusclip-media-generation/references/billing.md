@@ -43,9 +43,9 @@ These come back as a tool error with no receipt and no `jobId`. Nothing was crea
 |---|---|
 | `idempotency_conflict` | The key belongs to a different request. Repeat the original request exactly, or use a new key and quote again. |
 | `generation_unavailable` | Generation is switched off for now. Tell the user. Existing jobs can still be read. |
-| `model_unavailable` | This kind or model cannot be priced right now. Tell the user and continue without it; for `hailuo-3`, see [video](video.md) for using `seedance-2.5` instead. |
+| `model_unavailable` | This kind or model is not available right now; the message names only the kind, even when one video model is unavailable. Tell the user and continue without it; for `hailuo-3`, see [video](video.md) for using `seedance-2.5` instead. |
 | `An API-enabled OpusClip account is required` | Explain that generation needs a plan with API access; see `opusclip_whoami`. |
-| `text is N weighted characters` | Shorten the script with the user. Do not split it. |
+| `text is ...` (over the character limit) | Shorten the script with the user. Do not split it. |
 | `speech requires ...` / `music requires ...` | Fix the fields. |
 | `video requires prompt, model and durationSeconds and takes no speech fields` | Add the missing fields and drop any speech fields. |
 | `durationSeconds must be 5-15 for hailuo-3 or 4-30 for seedance-2.5` | Change the duration, or switch to the model that allows it. |

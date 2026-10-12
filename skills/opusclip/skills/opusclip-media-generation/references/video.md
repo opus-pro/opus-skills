@@ -9,7 +9,7 @@ Read the provider guides for prompting: MiniMax [video generation](https://platf
 - `hailuo-3` by default: clips of 5-15 seconds at `768p` or `2k`.
 - `seedance-2.5` for clips of 16-30 seconds, or when the clip needs its own dialogue, music or sound effects (`generateAudio: true`).
 - Seedance rejects images that show a real person's face. Use `hailuo-3` for a first frame taken from footage of a person.
-- If `hailuo-3` is refused with `model_unavailable`, use `seedance-2.5` when the clip and frame allow it (4-30 seconds, no last frame, no real person's face in the first frame), and tell the user.
+- If `hailuo-3` is refused with `model_unavailable`, use `seedance-2.5` when the clip and frame allow it (no last frame, no real person's face in the first frame, `resolution` `480p` or `720p`). It is a new request with a new key and a new quote; tell the user.
 
 Generate only the shots the edit needs, one shot per clip. Do not replace the user's own footage with generated clips.
 
@@ -18,14 +18,14 @@ Generate only the shots the edit needs, one shot per clip. Do not replace the us
 | Field | `hailuo-3` | `seedance-2.5` |
 |---|---|---|
 | `prompt` | Required, at most 7000 characters | Required, at most 8000 characters |
-| `durationSeconds` | Required, 5-15 | Required, 4-30 |
+| `durationSeconds` | Required, 5-15 whole seconds | Required, 4-30 whole seconds |
 | `resolution` | `768p` (default) or `2k` | `480p` or `720p` (default) |
 | `aspectRatio` | `16:9` (default), `9:16`, `1:1`, `4:3`, `3:4`, `21:9` | same |
 | `firstFrameUrl` | Optional | Optional |
 | `lastFrameUrl` | Optional, needs `firstFrameUrl` | Not available |
 | `generateAudio` | Not available | Optional, default silent |
 
-The tool refuses any other key, and a wrong value with the allowed values, before anything is charged.
+The tool refuses any key not in this table other than `kind`, `maxCredits` and `idempotencyKey`, and a wrong value with the allowed values, before anything is charged.
 
 Leave `aspectRatio` out when you send `firstFrameUrl`; the frame's shape sets it. Otherwise set it explicitly for the edit, such as `9:16` for a vertical short. Frame images must be public HTTPS URLs the user already hosts. Local files are not supported; never upload the user's files to a third-party host to get a URL.
 

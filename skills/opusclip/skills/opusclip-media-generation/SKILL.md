@@ -56,7 +56,7 @@ Record every job in `generation.json` in the project folder before and after eac
 
 - Speech: send the script as `text` with exactly one of `voice`, `voiceDescription` or `voiceKey`, and an optional `style`. Generate narration in one call so the voice stays consistent; shorten text over the limit rather than splitting it. For a designed voice, follow the sample-then-`voiceKey` flow in [speech](references/speech.md).
 - Music: describe genre, mood, instruments, tempo, structure, length, and vocals or instrumental in `prompt`. Never name artists or songs, and never reuse a reference video's music. See [music](references/music.md).
-- Video, when offered: describe subject, action, scene, style, camera and sound in `prompt`, and set `model`, `durationSeconds`, resolution and aspect ratio for the edit. See [video](references/video.md).
+- Video, when offered: describe subject, action, scene, style, camera and sound in `prompt`, and set `model`, `durationSeconds`, resolution and, without `firstFrameUrl`, aspect ratio for the edit. See [video](references/video.md).
 
 When copy-video-style hands off a missing asset, start from its brief: the asset's role, kind, duration, section or beat timing, mood, aspect ratio, and voice and delivery style for speech. The budget the user chose in its question round is the session total for the listed assets, and their quotes are already in `generation.json`. Reuse a key only for a request sent exactly as quoted; any change to text, voice, prompt or duration needs a new key and a new quote, covered by that total only while it fits (step 3). Generate only the assets the edit needs.
 
