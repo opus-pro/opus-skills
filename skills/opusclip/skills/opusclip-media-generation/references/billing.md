@@ -31,7 +31,7 @@ Make one test output first, such as one shot or a short speech sample, and get t
 |---|---|
 | `credit_admission_rejected` | Tell the user they lack credits. After they add credits, use a new key. |
 | `content_policy` | Rewrite the text or prompt; for video, use a different `firstFrameUrl` (`seedance-2.5` refuses frames that show a real person's face, `hailuo-3` accepts them). Then quote it with a new key. |
-| `invalid_request` | Fix the inputs, for example design a new voice if a `voiceKey` expired, then use a new key. |
+| `invalid_request` | Fix the inputs, then use a new key. |
 | `provider_unavailable`, `dispatch_failed`, `output_storage_failed` | Nothing was charged. Retry later with a new key and a new quote, after the user agrees, or without asking for a listed asset whose new quote fits the remaining session total. |
 | `submission_unknown`, `credit_reservation_pending`, `admission_incomplete` | Credits may be held for review. Do not resubmit; give the user the `jobId`. |
 
@@ -67,7 +67,7 @@ These come back as a tool error with no receipt and no `jobId`. Nothing was crea
 | `reservedCredits` | Credits currently held for it. |
 | `chargedCredits` | The final charge, or `null` until billing settles. `null` is not zero. |
 | `priceVersion` | The price list the estimate came from. |
-| `outputs[]` | `url`, `expiresAt`, `mimeType`, and when present `durationSeconds`, `voiceKey` (designed speech) or `lyrics` (music). |
+| `outputs[]` | `url`, `expiresAt`, `mimeType`, and when present `durationSeconds` or `lyrics` (music). |
 | `errorCode` | Why a job failed or is uncertain. |
 | `retryAfterSeconds` | Present while `queued` or `running`; read the job again after it, or poll with `waitSeconds: 20`. |
 
@@ -82,18 +82,16 @@ Write a record before each call and update it when a receipt returns and when th
     {
       "kind": "speech",
       "model": "gemini-3.8-flash-tts",
-      "params": { "voiceDescription": "warm, unhurried, mid-30s", "textFile": "generated/promo-vo-take1-k3f9.txt" },
+      "params": { "voice": "Sulafat", "style": "warm, unhurried", "textFile": "generated/promo-vo-take1-k3f9.txt" },
       "idempotencyKey": "promo-vo-take1-k3f9",
       "jobId": "...",
       "estimatedCredits": 2,
       "chargedCredits": 2,
       "status": "succeeded",
-      "voiceKey": "...",
-      "voiceKeyCreatedAt": "2026-10-12T09:30:00Z",
       "localFile": "generated/promo-vo-take1-k3f9.wav"
     }
   ]
 }
 ```
 
-Credit values are illustrative; use the quoted `estimatedCredits`. Save each job's exact text as `generated/<idempotencyKey>.txt` and reference that file, not a shared script that may change later. For designed speech, record the returned `voiceKey` and when it was created so a later session can reuse it within about 7 days. Do not store signed URLs as the durable record; read the job again for a fresh one.
+Credit values are illustrative; use the quoted `estimatedCredits`. Save each job's exact text as `generated/<idempotencyKey>.txt` and reference that file, not a shared script that may change later. Do not store signed URLs as the durable record; read the job again for a fresh one.

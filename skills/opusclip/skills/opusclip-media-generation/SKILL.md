@@ -54,7 +54,7 @@ Record every job in `generation.json` in the project folder before and after eac
 
 ## Write the request
 
-- Speech: send the script as `text` with exactly one of `voice`, `voiceDescription` or `voiceKey`, and an optional `style`. Generate narration in one call so the voice stays consistent; shorten text over the limit rather than splitting it. For a designed voice, follow the sample-then-`voiceKey` flow in [speech](references/speech.md).
+- Speech: send the script as `text` with one of the 30 prebuilt voices as `voice`, and an optional `style` for persona and delivery. Generate narration in one call so the voice stays consistent; shorten text over the limit rather than splitting it. When the user wants to hear a voice first, follow the sample flow in [speech](references/speech.md).
 - Music: describe genre, mood, instruments, tempo, structure, length, and vocals or instrumental in `prompt`. Never name artists or songs, and never reuse a reference video's music. See [music](references/music.md).
 - Video, when offered: describe subject, action, scene, style, camera and sound in `prompt`, and set `model`, `durationSeconds`, resolution and, without `firstFrameUrl`, aspect ratio for the edit. See [video](references/video.md).
 
