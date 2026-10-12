@@ -22,22 +22,42 @@ The model chooses the pace. To fit a fixed slot, adjust `style` ("brisk", "relax
 
 ## Choose a prebuilt voice
 
-Pick one voice from the descriptors and the user's brief, and describe the persona and delivery in `style`, for example "husky, calm documentary narrator". Do not describe or imitate a real, identifiable person's voice.
+Pick one voice from the table below by sound and use, matched to the user's brief, and describe the persona and delivery in `style`, for example "husky, calm documentary narrator". Do not describe or imitate a real, identifiable person's voice.
 
 When the user wants to hear a voice first, generate one short line of their own script with the chosen voice before the full script. A sample is a normal speech job: quote it and run it only after approval, with its own key. To compare two or three shortlisted voices, quote one sample per voice and show the total. Give the user every sample's URL; they choose. Never claim you heard a sample. Then generate the full narration in one call with the chosen voice.
 
-| Voice | Character | Voice | Character | Voice | Character |
-|---|---|---|---|---|---|
-| Zephyr | bright, female | Puck | upbeat, male | Charon | informative, male |
-| Kore | firm, female | Fenrir | excitable, male | Leda | youthful, female |
-| Orus | firm, male | Aoede | breezy, female | Callirrhoe | easy-going, female |
-| Autonoe | bright, female | Enceladus | breathy, male | Iapetus | clear, male |
-| Umbriel | easy-going, male | Algieba | smooth, male | Despina | smooth, female |
-| Erinome | clear, female | Algenib | gravelly, male | Rasalgethi | informative, male |
-| Laomedeia | upbeat, female | Achernar | soft, female | Alnilam | firm, male |
-| Schedar | even, male | Gacrux | mature, female | Pulcherrima | forward, female |
-| Achird | friendly, male | Zubenelgenubi | casual, male | Vindemiatrix | gentle, female |
-| Sadachbia | lively, male | Sadaltager | knowledgeable, male | Sulafat | warm, female |
+| Voice | Gender, pitch | Sound | Good for |
+|---|---|---|---|
+| Achernar | female, high | soft, calm, soothing | quiet or personal storytelling |
+| Achird | male, low | friendly, warm, approachable | casual walkthroughs, vlogs |
+| Algenib | male, low | gravelly, grounded, hard-hitting | dramatic or intense narration |
+| Algieba | male, low | smooth, relaxed, polished | corporate videos, polished explainers |
+| Alnilam | male, low | firm, direct, commanding | instructions, announcements |
+| Aoede | female, medium | breezy, light, relaxed | lifestyle and travel vlogs |
+| Autonoe | female, medium | bright, positive, enthusiastic | promos, product feature updates |
+| Callirrhoe | female, medium | easy-going, casual | friendly guides, casual vlogs |
+| Charon | male, low | informative, steady | technical explainers, documentaries |
+| Despina | female, medium | smooth, mellow, polished | ads, professional e-learning |
+| Enceladus | male, low | breathy, intimate, soft-spoken | intimate storytelling |
+| Erinome | female, medium | clear, articulate, precise | training, step-by-step instructions |
+| Fenrir | male, low | excitable, high-energy | sports clips, energetic intros |
+| Gacrux | female, medium | mature, authoritative | official announcements, serious presentations |
+| Iapetus | male, low | clear, crisp | help videos, onboarding walkthroughs |
+| Kore | female, medium | firm, direct, authoritative | news reports, official messages |
+| Laomedeia | female, high | upbeat, energetic | sales pitches, social media marketing |
+| Leda | female, high | youthful, vibrant | pop culture, gaming |
+| Orus | male, low | firm, serious, no-nonsense | reports, safety readouts |
+| Puck | male, low | upbeat, cheerful, rich | podcasts, reviews, ads |
+| Pulcherrima | neutral, medium | forward, confident, direct | sales, direct calls to action |
+| Rasalgethi | male, medium | informative, measured | history lectures, audiobooks |
+| Sadachbia | male, low | lively, animated | daily digests, podcasts |
+| Sadaltager | male, medium | knowledgeable, steady | science explainers, deep dives |
+| Schedar | male, low | even, balanced | neutral scripts, documentation readouts |
+| Sulafat | female, medium | warm, inviting, comforting | onboarding, warm welcomes |
+| Umbriel | male, low | easy-going, laid-back | reviews, casual explainers |
+| Vindemiatrix | female, medium | gentle, calming | kids content, meditation |
+| Zephyr | female, high | bright, positive | showreels, product announcements |
+| Zubenelgenubi | male, low | casual, conversational | startup updates, casual pitches |
 
 ## Provider docs to tool fields
 
