@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.7.0 — `copy-video-style`: edit your footage in a reference video's style
+
+- **New skill: `copy-video-style`.** Give the agent your footage and a reference video, choose what to borrow (pacing, captions, framing, color, transitions, graphics or sound), and it makes the edit locally with FFmpeg or another installed renderer. Reference understanding uses the OpusClip MCP's `opusclip_analyze_reference_media`, billed in normal OpusClip credits; the result and actual charge are read back with `opusclip_get_reference_analysis`.
+- **Understanding is required before directing the edit.** When the connector needs sign-in or reauthorization, the skill names the connector, walks through the host's login flow, and retries the same call with its original job ID and idempotency key. A manual-only edit happens only when the user explicitly chooses it.
+- **Fixes existing installs missing the new skill.** The manifests listed `copy-video-style` without a version change, so marketplace installs stayed on their cached 3.6.0 copy. All four manifests now say `3.7.0`.
+
 ## 3.6.0 — `clip edit ops`: named edit operations
 
 `clip edit ops` replaces hand-editing the EditingScript for the edits it covers. Operations are named, applied in order, and cost **one re-render for the whole batch**:
