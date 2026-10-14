@@ -3,6 +3,7 @@
 ## 3.8.1 — `opusclip-media-generation`: one tool per output
 
 - **Media generation now uses one tool per output.** Speech, music and video each have their own OpusClip MCP tool: `opusclip_create_speech_job`, `opusclip_create_music_job` and `opusclip_create_video_job`. They replace `opusclip_create_media_generation_job` and its `kind` field; every other field stays the same. Jobs are still read with `opusclip_get_media_generation_job`, and quoting, approval and billing work as before. `opusclip-media-generation` and `copy-video-style` now look for and call the new tools.
+- **A connected account without understanding or generation is no longer sent to reconnect.** When the OpusClip server lists `opusclip_get_reference_analysis` or `opusclip_get_media_generation_job` but not the matching submit tool, `copy-video-style` and `opusclip-media-generation` say the capability is not available to this account right now and continue locally, instead of walking the user through connecting and signing in again.
 - **Version.** All four manifests now say `3.8.1`.
 
 ## 3.8.0 — `opusclip-media-generation`: generate voiceover, music and video clips

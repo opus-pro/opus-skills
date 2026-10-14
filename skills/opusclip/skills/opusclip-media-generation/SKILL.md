@@ -27,7 +27,7 @@ Read the provider docs for what options mean and how to write prompts, but send 
 
 ## Connect and sign in
 
-Search the connected tools for `opusclip_create_speech_job`, `opusclip_create_music_job` and `opusclip_create_video_job` under any server name (in Claude Code, load deferred tools first), then call that server's `opusclip_whoami`. If the generation tools are missing, or sign-in is required or expired, give the user the commands for their host and wait for them to finish. Do not run these commands yourself; the user runs them.
+Search the connected tools for `opusclip_create_speech_job`, `opusclip_create_music_job` and `opusclip_create_video_job` under any server name (in Claude Code, load deferred tools first), then call that server's `opusclip_whoami`. If no server lists the generation tools or `opusclip_get_media_generation_job`, or sign-in is required or expired, give the user the commands for their host and wait for them to finish. Do not run these commands yourself; the user runs them. A signed-in server that lists `opusclip_get_media_generation_job` but no create tool is the right server; generation is just not available to this account right now. Say so and continue without it, without asking the user to reconnect or sign in again.
 
 ```bash
 # Claude Code: add the server, then run /mcp and authenticate OpusClip
