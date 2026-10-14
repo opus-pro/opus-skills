@@ -1,6 +1,6 @@
 # Video
 
-`kind: "video"` generates a short clip with MiniMax H3 (`model: "hailuo-3"`, also called Hailuo 3) or Dreamina Seedance 2.5 (`model: "seedance-2.5"`). Use it only when the tool's `kind` accepts `video`; otherwise tell the user video generation is not available and continue without it. Where this file and the tool's schema or description differ, follow the tool.
+`opusclip_create_video_job` generates a short clip with MiniMax H3 (`model: "hailuo-3"`, also called Hailuo 3) or Dreamina Seedance 2.5 (`model: "seedance-2.5"`). Use it only when the connected server offers it; otherwise tell the user video generation is not available and continue without it. Where this file and the tool's schema or description differ, follow the tool.
 
 Read the provider guides for prompting: MiniMax [video generation](https://platform.minimax.io/docs/guides/video-generation) and [H3 feature highlights](https://platform.minimax.io/docs/guides/video-prompt); Seedance on [ModelArk](https://docs.byteplus.com/en/docs/ModelArk/2607688), its [prompt guide](https://docs.byteplus.com/en/docs/ModelArk/2607689) and the [task API](https://docs.byteplus.com/en/docs/modelark/create-video-generation-task-api). Some of these pages need JavaScript; if one does not render, use this file and the tool's validation errors.
 
@@ -25,7 +25,7 @@ Generate only the shots the edit needs, one shot per clip. Do not replace the us
 | `lastFrameUrl` | Optional, needs `firstFrameUrl` | Not available |
 | `generateAudio` | Not available | Optional, default silent |
 
-The tool refuses any key not in this table other than `kind`, `maxCredits` and `idempotencyKey`, and a wrong value with the allowed values, before anything is charged.
+The tool refuses any key not in this table other than `maxCredits` and `idempotencyKey`, and a wrong value with the allowed values, before anything is charged.
 
 Leave `aspectRatio` out when you send `firstFrameUrl`; the frame's shape sets it. Otherwise set it explicitly for the edit, such as `9:16` for a vertical short. Frame images must be public HTTPS URLs the user already hosts. Local files are not supported; never upload the user's files to a third-party host to get a URL.
 

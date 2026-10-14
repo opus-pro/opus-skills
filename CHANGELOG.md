@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.8.1 — `opusclip-media-generation`: one tool per output
+
+- **Media generation now uses one tool per output.** Speech, music and video each have their own OpusClip MCP tool: `opusclip_create_speech_job`, `opusclip_create_music_job` and `opusclip_create_video_job`. They replace `opusclip_create_media_generation_job` and its `kind` field; every other field stays the same. Jobs are still read with `opusclip_get_media_generation_job`, and quoting, approval and billing work as before. `opusclip-media-generation` and `copy-video-style` now look for and call the new tools.
+- **Version.** All four manifests now say `3.8.1`.
+
 ## 3.8.0 — `opusclip-media-generation`: generate voiceover, music and video clips
 
 - **New skill: `opusclip-media-generation`.** Generates a voiceover or narration with Gemini 3.8 Flash TTS (30 prebuilt voices with optional persona and delivery direction) and a music track with Lyria 3.5, through the OpusClip MCP's `opusclip_create_media_generation_job` and the read-only `opusclip_get_media_generation_job`. Video clips with MiniMax H3 (`hailuo-3`) or Seedance 2.5 (`seedance-2.5`) are covered for servers that offer them. Each reference maps common provider doc fields to the tool's own parameter names.

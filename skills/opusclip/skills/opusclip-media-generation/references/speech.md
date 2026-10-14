@@ -1,6 +1,6 @@
 # Speech
 
-`kind: "speech"` turns a script into a voiceover with Gemini 3.8 Flash TTS. Read the [speech generation guide](https://ai.google.dev/gemini-api/docs/speech-generation) for delivery direction and inline tags.
+`opusclip_create_speech_job` turns a script into a voiceover with Gemini 3.8 Flash TTS. Read the [speech generation guide](https://ai.google.dev/gemini-api/docs/speech-generation) for delivery direction and inline tags.
 
 ## Fields
 
