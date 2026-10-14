@@ -46,8 +46,7 @@ These come back as a tool error with no receipt and no `jobId`. Nothing was crea
 | `model_unavailable` | This kind or model is not available right now; the message names only the kind, even when one video model is unavailable. Tell the user and continue without it; for `hailuo-3`, see [video](video.md) for using `seedance-2.5` instead. |
 | `An API-enabled OpusClip account is required` | Explain that generation needs a plan with API access; see `opusclip_whoami`. |
 | `text is ...` (over the character limit) | Shorten the script with the user. Do not split it. |
-| `speech requires ...` / `music requires ...` | Fix the fields. |
-| `video requires prompt, model and durationSeconds and takes no speech fields` | Add the missing fields and drop any speech fields. |
+| `Required` or `Unrecognized key(s)` | A field is missing, or this tool does not take it: each create tool accepts only its own inputs. Add the missing field or drop the extra one. |
 | `durationSeconds must be 5-15 for hailuo-3 or 4-30 for seedance-2.5` | Change the duration, or switch to the model that allows it. |
 | `resolution must be 768p or 2k for hailuo-3, or 480p or 720p for seedance-2.5` | Use a resolution the chosen model offers. |
 | `aspectRatio cannot be combined with firstFrameUrl; the video takes the frame shape` | Drop `aspectRatio`. |
