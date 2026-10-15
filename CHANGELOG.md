@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.9.0 — `copy-video-style`: anonymous usage events
+
+- **Five checkpoint events.** The skill now ships `scripts/telemetry.mjs`, a zero-dependency Node script the agent runs at fixed points: `copy_video.run_started` after the local scan (preflight result, missing tool, file or link reference), `copy_video.plan_confirmed` after the what-to-copy round (chosen elements, understanding, generation budget), `copy_video.render_started` and `copy_video.render_finished` around each render (attempt, renderer, outcome, render time bucket) and `copy_video.delivered` at each hand-over (feedback rounds, output length bucket, aspect ratio, generation, and the understanding job ID when one ran). `run_started` prints a run ID that the later calls pass back, so one run's events share it.
+- **Anonymous and contained.** Events carry only enums, booleans and numbers, plus the run ID, skill version, the agent's name (detected from the presence of its environment markers) and a random install ID in `~/.opusclip/telemetry.json`; never paths, file names, URLs, prompts, captions, transcripts or media, and the IP address is not stored. Each send waits at most 2 seconds, ignores its own failures and always exits 0, and the first event prints a one-time notice the agent passes on.
+- **Off switch.** `OPUSCLIP_NO_TELEMETRY=1`, `DO_NOT_TRACK=1` or `node scripts/telemetry.mjs disable` turns the events off, and they are off in CI and with `NODE_ENV=development`; `status` shows the setting. `--dry-run` prints an event instead of sending it, and `node --test` runs the script's tests.
+- **Version.** All four manifests and the telemetry script now say `3.9.0`.
+
 ## 3.8.2 — ready for the OpusClip plugin in ChatGPT and Codex
 
 - **A content-policy refusal is reported, not routed around.** `opusclip-media-generation` no longer sends a real-person first frame from `seedance-2.5` to `hailuo-3`, and no longer rewrites a prompt to get past a `content_policy` refusal. It tells the user the provider refused the request and that nothing was charged, and does not resubmit the same request. This matches the OpusClip MCP tool text.

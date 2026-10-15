@@ -19,11 +19,17 @@ Check that the reference and source are playable, and preflight local tools befo
 
 Scan the reference locally before anything that costs credits: probe it, detect cuts, then view a contact sheet, native-frame bursts you choose around key events, and spectrum and waveform pictures, plus loudness and silence measurements. Choose the sampling rate from its measured cut cadence; one or two frames per second misses transitions and caption animation. You cannot hear audio, so these measurements show where sound changes, not what it sounds like. Follow [scan locally](references/reference-analysis.md#scan-locally).
 
+After the scan, run the bundled `node scripts/telemetry.mjs run_started --preflight ok|failed --missing-tool none|ffmpeg|ffprobe|ffmpeg_subtitles|ffmpeg_drawtext|yt_dlp --reference file|url` and pass the ID it prints to each later telemetry call as `--run <id>`.
+
+These calls send anonymous usage events with only enums, counts and the understanding job ID, never paths, file names, prompts or media, and ignore their own failures: never retry or debug them, and pass on the one-time notice the first call may print. `OPUSCLIP_NO_TELEMETRY=1`, `DO_NOT_TRACK=1` or `node scripts/telemetry.mjs disable` turns them off.
+
 ## Ask what to copy
 
 Summarize in a few timecoded lines what defines the reference, then ask one round: which observed elements to copy (multi-select, each named concretely, such as "word-by-word bold captions with a yellow keyword pop (0:03)", recommended first); whether to run OpusClip video understanding (deep understanding below), with "a few credits" stated in the option itself and recommended when sound, music, voice or pacing matter, because you cannot listen; and, when any offered element needs material the footage lacks, such as music, sound effects, B-roll, fonts or overlays, whether to use the user's own files, search online for free-to-use replacements (CC0, public domain or a license that covers this use), generate them with OpusClip up to a stated credit budget, or leave them out. Offer generation only for assets whose create tool the connected server exposes (`opusclip_create_speech_job`, `opusclip_create_music_job` or `opusclip_create_video_job`); before asking, get a free quote for each asset you would generate, so the question can list each quote and their sum and ask for the credit limit. Follow [asking what to copy](references/editing-elements.md#asking-what-to-copy) for options, quotes and host tools.
 
 When the run cannot take a reply, or the user says "you decide", do not ask: use the recommended elements, skip deep understanding unless the request asked for it, install, download or generate nothing, and state these assumptions. Generate nothing in such a run even if the request names a budget; never run paid generation without a budget the user chose in the round or gave when asked for the limit. If the user agrees to generation without giving a limit, such as "find or generate them", quote the assets OpusClip can make and ask once for the limit. Never drop generation silently: if you will not generate a listed asset, or cannot use the user's answer, say what you are not generating and why.
+
+Once the choices are settled, run `node scripts/telemetry.mjs plan_confirmed --run <id> --elements <chosen> --budget <credits>`, adding `--understanding` when chosen; name the elements from pacing, transitions, framing, captions, text_overlays, graphics, grading, music, sound_effects, voiceover and b_roll, and pass a budget of 0 without generation.
 
 ## Understand with OpusClip MCP and your own inspection
 
@@ -51,6 +57,8 @@ Give a concise direction update, then exercise creative judgment. Avoid turning 
 
 ## Make it locally
 
+Around each render command, run `node scripts/telemetry.mjs render_started --run <id> --attempt <n> --renderer ffmpeg|hyperframes|remotion|other` before it and `render_finished` with the same flags plus `--outcome ok|failed` after it, counting attempts from 1.
+
 Read [native production and verification](references/native-production.md) for timing, captions, framing and rendering pitfalls. Use installed FFmpeg or a suitable available local renderer; adapt to the actual environment. Do not send the edit to OpusClip's remote editing engine.
 
 Prefer a clean original to footage with burned-in subtitles. Keep picture, audio and captions on one canonical timeline. Read any supplied extraction mapping before using a project-wide timed transcript. Verify speech alignment; use phrase-level captions when word timing is unreliable. Preserve wording unless rewriting or translation was requested.
@@ -64,3 +72,5 @@ Inspect the actual encoded artifact, not just source frames or render stills. Pr
 Verify each selected element in the encoded output with the same cut detection, bursts and sound measurements used on the reference, side by side where it helps; see [verifying the render](references/editing-elements.md#verifying-the-render). Fix material defects. Take the user's feedback as direction for the next cut: more context, louder music, different grading or less texture should change the edit, not merely the explanation. Recheck affected sections after revisions.
 
 Deliver the playable video, editable project, rerender instructions and the list of added assets with their sources, licenses and any required attribution; list each generated asset with its job ID, model and charged credits, and note that its use is subject to the user's OpusClip terms; never invent a license for it. Briefly explain what was borrowed and any important difference. Report recorded understanding charges and generation charges separately when available, with generation shown against the approved budget, such as "Generation: 8 of 12 approved credits"; unresolved billing is not zero. State specific review limits, such as unavailable audio playback or sound that was never analyzed, without claiming checks that did not happen.
+
+Each time you hand over a video, run `node scripts/telemetry.mjs delivered --run <id> --revisions <feedback rounds so far> --duration <seconds> --aspect <width>:<height>`, adding `--generation` when OpusClip generated assets and `--analysis-task <jobId>` when understanding ran.
