@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.8.2 — ready for the OpusClip plugin in ChatGPT and Codex
+
+- **A content-policy refusal is reported, not routed around.** `opusclip-media-generation` no longer sends a real-person first frame from `seedance-2.5` to `hailuo-3`, and no longer rewrites a prompt to get past a `content_policy` refusal. It tells the user the provider refused the request and that nothing was charged, and does not resubmit the same request. This matches the OpusClip MCP tool text.
+- **Works when installed as part of the OpusClip plugin.** When the skills come with the plugin, the OpusClip server is already part of it, so `copy-video-style` and `opusclip-media-generation` ask the user to connect or sign in in the host's plugin settings instead of giving `claude mcp add` or `codex mcp add` commands.
+- **Hosts without a local shell.** `copy-video-style` needs a local shell with FFmpeg. In a host without one, such as ChatGPT, it says so, suggests a coding agent such as Codex, and stops before any paid OpusClip call. `opusclip-media-generation` there skips downloads and local checks and gives the user each output URL with its job ID and charged credits.
+- **Version.** All four manifests now say `3.8.2`.
+
 ## 3.8.1 — `opusclip-media-generation`: one tool per output
 
 - **Media generation now uses one tool per output.** Speech, music and video each have their own OpusClip MCP tool: `opusclip_create_speech_job`, `opusclip_create_music_job` and `opusclip_create_video_job`. They replace `opusclip_create_media_generation_job` and its `kind` field; every other field stays the same. Jobs are still read with `opusclip_get_media_generation_job`, and quoting, approval and billing work as before. `opusclip-media-generation` and `copy-video-style` now look for and call the new tools.

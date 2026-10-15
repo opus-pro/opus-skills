@@ -8,8 +8,7 @@ Read the provider guides for prompting: MiniMax [video generation](https://platf
 
 - `hailuo-3` by default: clips of 5-15 seconds at `768p` or `2k`.
 - `seedance-2.5` for clips of 16-30 seconds, or when the clip needs its own dialogue, music or sound effects (`generateAudio: true`).
-- Seedance rejects images that show a real person's face. Use `hailuo-3` for a first frame taken from footage of a person.
-- If `hailuo-3` is refused with `model_unavailable`, use `seedance-2.5` when the clip and frame allow it (no last frame, no real person's face in the first frame, `resolution` `480p` or `720p`). It is a new request with a new key and a new quote; tell the user.
+- If `hailuo-3` is refused with `model_unavailable`, use `seedance-2.5` when the clip allows it (no last frame, `resolution` `480p` or `720p`). It is a new request with a new key and a new quote; tell the user.
 
 Generate only the shots the edit needs, one shot per clip. Do not replace the user's own footage with generated clips.
 

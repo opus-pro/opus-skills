@@ -8,7 +8,7 @@ Video understanding needs the OpusClip MCP server at `https://mcp.opus.pro/mcp`,
 
 A signed-in server that lists a result reader (`opusclip_get_reference_analysis` or `opusclip_get_media_generation_job`) but not the matching submit tool (`opusclip_analyze_reference_media`, or the asset's create tool) is connected correctly; that capability is just not available to this account right now. Do not send the user through the commands below or sign-in again. Say the capability is unavailable and continue locally.
 
-When the server is missing, give the user the commands for their host and wait for them to finish:
+When this skill came with the OpusClip plugin, the server is already part of it: if it is not connected or signed in, ask the user to do that in the host's plugin settings. Otherwise, when the server is missing, give the user the commands for their host and wait for them to finish:
 
 ```bash
 # Claude Code: add the server, then run /mcp in Claude Code and authenticate OpusClip
