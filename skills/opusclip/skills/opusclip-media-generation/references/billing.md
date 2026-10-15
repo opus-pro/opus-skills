@@ -5,7 +5,7 @@ Speech, music and video have a fixed price per request; a video's price is its d
 ## Quote, approve, run
 
 1. Pick a new `idempotencyKey` for the request, 8-128 characters, such as `<project>-<asset>-<take>-<short random or timestamp>`. Write it to `generation.json` before calling, and reuse it only from that record. Keys belong to the organization and outlive the session.
-2. Call `opusclip_create_media_generation_job` with the full request and `maxCredits: 0`. On a new key, the result has `status: "needs_approval"`, `estimatedCredits`, `model` and `priceVersion`; nothing is created, held or charged. If the key already belongs to a job, the call returns that job's receipt instead, with no new charge. If the key belongs to a different request, it is refused with `idempotency_conflict`.
+2. Call the create tool for the output (`opusclip_create_speech_job`, `opusclip_create_music_job` or `opusclip_create_video_job`) with the full request and `maxCredits: 0`. On a new key, the result has `status: "needs_approval"`, `estimatedCredits`, `model` and `priceVersion`; nothing is created, held or charged. If the key already belongs to a job, the call returns that job's receipt instead, with no new charge. If the key belongs to a different request, it is refused with `idempotency_conflict`.
 3. Tell the user what you will generate, with which model, and the exact credit cost, in one line. Wait for an explicit yes. Silence, "sounds good" about the creative plan, or a yes to an earlier request is not approval of this cost; an approved session total is, for the requests listed with it (see below). When the run cannot take a reply, or the user says "you decide", quote only: generate nothing, report each quote, and stop.
 4. Call again with the identical request, the same key and `maxCredits` equal to this request's quoted `estimatedCredits`, never more than the remaining session total. `maxCredits` is not part of the request identity, so the quote and the paid call share the key.
 5. If the paid call still returns `needs_approval`, the price changed: show the new estimate and ask again, even within a session total.
@@ -46,8 +46,7 @@ These come back as a tool error with no receipt and no `jobId`. Nothing was crea
 | `model_unavailable` | This kind or model is not available right now; the message names only the kind, even when one video model is unavailable. Tell the user and continue without it; for `hailuo-3`, see [video](video.md) for using `seedance-2.5` instead. |
 | `An API-enabled OpusClip account is required` | Explain that generation needs a plan with API access; see `opusclip_whoami`. |
 | `text is ...` (over the character limit) | Shorten the script with the user. Do not split it. |
-| `speech requires ...` / `music requires ...` | Fix the fields. |
-| `video requires prompt, model and durationSeconds and takes no speech fields` | Add the missing fields and drop any speech fields. |
+| `Required` or `Unrecognized key(s)` | A field is missing, or this tool does not take it: each create tool accepts only its own inputs. Add the missing field or drop the extra one. |
 | `durationSeconds must be 5-15 for hailuo-3 or 4-30 for seedance-2.5` | Change the duration, or switch to the model that allows it. |
 | `resolution must be 768p or 2k for hailuo-3, or 480p or 720p for seedance-2.5` | Use a resolution the chosen model offers. |
 | `aspectRatio cannot be combined with firstFrameUrl; the video takes the frame shape` | Drop `aspectRatio`. |

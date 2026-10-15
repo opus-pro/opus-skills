@@ -1,6 +1,6 @@
 # Music
 
-`kind: "music"` generates a track with Lyria 3.5. Read the [music generation guide](https://ai.google.dev/gemini-api/docs/music-generation) and the [Lyria 3 Pro prompting guide](https://cloud.google.com/blog/products/ai-machine-learning/ultimate-prompting-guide-for-lyria-3-pro) (an earlier model; its prompt structure still applies).
+`opusclip_create_music_job` generates a track with Lyria 3.5. Read the [music generation guide](https://ai.google.dev/gemini-api/docs/music-generation) and the [Lyria 3 Pro prompting guide](https://cloud.google.com/blog/products/ai-machine-learning/ultimate-prompting-guide-for-lyria-3-pro) (an earlier model; its prompt structure still applies).
 
 ## The prompt is the only control
 
