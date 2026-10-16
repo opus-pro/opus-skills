@@ -1,6 +1,6 @@
 ---
 name: copy-video-style
-description: Edit the user's footage in the style of a reference video or link. Use when the user wants to borrow a video's pacing, captions, framing, color, transitions, motion graphics, or sound treatment. Inspect the reference locally, optionally deepen it with OpusClip MCP video understanding, then make and review the edit locally.
+description: Edit the user's footage in the style of a reference video or link. Use when the user wants to borrow a video's pacing, captions, framing, color, transitions, motion graphics, or sound treatment. Inspect the reference locally, optionally deepen it with OpusClip MCP video understanding, then make and review the edit locally. Needs a local shell with FFmpeg, as in Codex or Claude Code.
 ---
 
 # Copy Video Style
@@ -8,6 +8,8 @@ description: Edit the user's footage in the style of a reference video or link. 
 Turn a reference into a creative direction for the user's footage, then produce a finished local video and editable project. The agent owns the analysis prompt, creative choices and production. OpusClip MCP supplies optional deep video understanding with normal account billing. Describe this capability to the user as OpusClip video understanding.
 
 ## Get the two inputs and the intent
+
+This workflow reads and renders files on the user's computer. If you cannot run shell commands there, as in ChatGPT, tell the user it needs a coding agent with a local shell, such as Codex, and stop before calling any paid OpusClip tool.
 
 Ask for the user's own footage and a reference video or link if missing. Note any parts the user already wants to borrow, but ask what to copy only after a free local scan, when you can name what the reference actually does. Do not start with a video-type/theme questionnaire or a separate budget question; a generation budget, when needed, is one of the materials options. Resolve other missing details only when they actually prevent work.
 

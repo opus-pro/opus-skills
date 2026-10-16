@@ -29,8 +29,8 @@ Make one test output first, such as one shot or a short speech sample, and get t
 
 | `errorCode` | What to do |
 |---|---|
-| `credit_admission_rejected` | Tell the user they lack credits. After they add credits, use a new key. |
-| `content_policy` | Rewrite the text or prompt; for video, use a different `firstFrameUrl` (`seedance-2.5` refuses frames that show a real person's face, `hailuo-3` accepts them). Then quote it with a new key. |
+| `credit_admission_rejected` | The organization does not have enough credits. Tell the user, and use a new key for any later retry. |
+| `content_policy` | The model provider refused the request under its content policy, and nothing was charged. Tell the user, and do not resubmit the same request. |
 | `invalid_request` | Fix the inputs, then use a new key. |
 | `provider_unavailable`, `dispatch_failed`, `output_storage_failed` | Nothing was charged. Retry later with a new key and a new quote, after the user agrees, or without asking for a listed asset whose new quote fits the remaining session total. |
 | `submission_unknown`, `credit_reservation_pending`, `admission_incomplete` | Credits may be held for review. Do not resubmit; give the user the `jobId`. |
