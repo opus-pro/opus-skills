@@ -28,7 +28,7 @@ function event(home, args, env) {
   return JSON.parse(result.stdout);
 }
 
-test("a full run sends five anonymous events that share its run ID", () => {
+test("a run sends two anonymous events that share its run ID", () => {
   const home = tempHome();
   const agent = { CLAUDECODE: "1" };
   const started = run(home, ["run_started", "--preflight", "ok", "--missing-tool", "none", "--reference", "url"], agent);
@@ -36,38 +36,41 @@ test("a full run sends five anonymous events that share its run ID", () => {
   assert.match(started.stderr, /OPUSCLIP_NO_TELEMETRY=1/, "the first event prints the notice");
   const first = JSON.parse(started.stdout);
   const run_id = first.properties.run_id;
-  const id = ["--run", run_id];
-  const step = (args) => event(home, [args[0], ...id, ...args.slice(1)], agent);
 
-  const plan = step(["plan_confirmed", "--elements", "captions,pacing,captions,sparkles", "--understanding", "--budget", "50"]);
-  const render = step(["render_started", "--attempt", "1", "--renderer", "ffmpeg"]);
-  const rendered = run(home, ["render_finished", ...id, "--attempt", "1", "--renderer", "ffmpeg", "--outcome", "ok"], agent);
-  assert.equal(rendered.stderr, "", "the notice prints only once");
-  const finished = JSON.parse(rendered.stdout);
-  const delivered = step([
-    "delivered",
-    "--revisions",
-    "1",
-    "--duration",
-    "42.5",
-    "--aspect",
-    "1080x1920",
-    "--generation",
-    "--analysis-task",
-    "mcp_media_abc123",
-  ]);
+  const handOver = (revisions) =>
+    run(
+      home,
+      [
+        "delivered",
+        "--run",
+        run_id,
+        "--revisions",
+        revisions,
+        "--duration",
+        "42.5",
+        "--aspect",
+        "1080x1920",
+        "--elements",
+        "captions,pacing,captions,sparkles",
+        "--budget",
+        "50",
+        "--understanding",
+        "--analysis-task",
+        "mcp_media_abc123",
+        "--generation",
+      ],
+      agent,
+    );
+  const result = handOver("0");
+  assert.equal(result.stderr, "", "the notice prints only once");
+  const delivered = JSON.parse(result.stdout);
+  const revised = JSON.parse(handOver("1").stdout);
 
   const { anonymousId } = JSON.parse(readFileSync(join(home, ".opusclip", "telemetry.json"), "utf8"));
-  const events = [first, plan, render, finished, delivered];
+  const events = [first, delivered, revised];
   assert.deepEqual(
     events.map((e) => e.event),
-    [
-      "copy_video.run_started",
-      "copy_video.plan_confirmed",
-      "copy_video.render_started",
-      "copy_video.render_finished",
-      "copy_video.delivered",
-    ],
+    ["copy_video.run_started", "copy_video.delivered", "copy_video.delivered"],
   );
   for (const { properties } of events) {
     assert.equal(properties.run_id, run_id);
@@ -81,34 +84,35 @@ test("a full run sends five anonymous events that share its run ID", () => {
     assert.equal(properties.opus_lab_app, "copy-video");
     assert.equal(properties.app_env, "prod");
   }
-  assert.equal(new Set(events.map((e) => e.properties.$insert_id)).size, 5);
+  assert.equal(new Set(events.map((e) => e.properties.$insert_id)).size, 3, "each feedback round is a new hand-over");
 
   assert.deepEqual(
     pick(first.properties, ["preflight_ok", "missing_tool", "has_reference", "reference_kind"]),
     { preflight_ok: true, missing_tool: "none", has_reference: true, reference_kind: "url" },
   );
-  assert.deepEqual(pick(plan.properties, ["elements", "paid_understanding", "generation_budget"]), {
-    elements: ["captions", "pacing", "other"],
-    paid_understanding: true,
-    generation_budget: 50,
-  });
-  assert.deepEqual(pick(render.properties, ["attempt", "renderer"]), { attempt: 1, renderer: "ffmpeg" });
-  assert.deepEqual(pick(finished.properties, ["attempt", "renderer", "outcome", "render_seconds_bucket"]), {
-    attempt: 1,
-    renderer: "ffmpeg",
-    outcome: "ok",
-    render_seconds_bucket: "0-10s",
-  });
   assert.deepEqual(
-    pick(delivered.properties, ["revisions", "output_duration_bucket", "aspect", "used_generation", "analysis_task_id"]),
+    pick(delivered.properties, [
+      "revisions",
+      "output_duration_bucket",
+      "aspect",
+      "elements",
+      "paid_understanding",
+      "generation_budget",
+      "used_generation",
+      "analysis_task_id",
+    ]),
     {
-      revisions: 1,
+      revisions: 0,
       output_duration_bucket: "30-60s",
       aspect: "9:16",
+      elements: ["captions", "pacing", "other"],
+      paid_understanding: true,
+      generation_budget: 50,
       used_generation: true,
       analysis_task_id: "mcp_media_abc123",
     },
   );
+  assert.equal(revised.properties.revisions, 1);
 });
 
 test("values outside the allowed sets never reach an event", () => {
@@ -158,7 +162,7 @@ test("opt-outs, CI and development send and store nothing", () => {
 
 test("bad input still exits 0 without an error", () => {
   const home = tempHome();
-  for (const args of [[], ["unknown"], ["render_finished", "--outcome"], ["plan_confirmed", "--budget", "lots"]]) {
+  for (const args of [[], ["unknown"], ["plan_confirmed"], ["delivered", "--revisions"], ["delivered", "--budget", "lots"]]) {
     const result = run(home, args);
     assert.equal(result.status, 0);
     assert.equal(result.stderr.includes("Error"), false);
