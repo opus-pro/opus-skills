@@ -417,7 +417,7 @@ opusclip thumbnail create --url URL --reference ./face.png --prompt "bold red te
 | Flag | Description |
 |------|-------------|
 | `--url` | (required) Source video URL — same sources as `project create` (`sourceUri`). |
-| `--reference` | Optional local image to reference (face, brand asset). Uploaded via `/upload-links` `usecase: FreeToolMedia`. |
+| `--reference` | Optional local image to reference (face, brand asset). Uploaded via `/upload-links-v2` `usecase: FreeToolMedia`. |
 | `--mask` | Optional local image used as a mask. Same upload flow. |
 | `--prompt` | Optional text prompt steering the design (style, copy). |
 | `--output` | Output directory for downloaded PNGs (default: `/tmp/opusclip-thumbnails-{jobId}/`). |
