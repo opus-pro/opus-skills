@@ -114,21 +114,23 @@ Returns list of templates with `brandTemplateId` and name.
 
 ### Step 1: Get Upload Link
 
-**POST** `/upload-links`
+**POST** `/upload-links-v2`
 
 ```json
-{"video": {"usecase": "LocalUpload"}}
+{"type": "Upload", "domain": "Google", "usecase": "LocalUpload", "fileName": "talk.mp4", "size": 250}
 ```
 
-Response: `{url, uploadId, dnsUrl, useAmount, totalAmount}`
+Response: `{url, uploadId, contentType, requiredHeaders, useAmount, totalAmount, ...}`
+
+The server picks the file type and binds it into the signed `url`. For `LocalUpload` it is always `application/octet-stream`, and `requiredHeaders` is `{"x-goog-resumable": "start", "Content-Type": "application/octet-stream"}`. The old `/upload-links` endpoint is deprecated and will be removed.
 
 ### Step 2: Initiate Resumable Session
 
-**POST** to the `url` from step 1, with header `x-goog-resumable: start` and `Content-Length: 0`. Extract `Location` header from response.
+**POST** to the `url` from step 1 with every header in `requiredHeaders`, plus `Content-Length: 0`. A missing or different header is refused with `403`. Extract the `Location` header from the response.
 
 ### Step 3: Upload File
 
-**PUT** to the `Location` URL with `Content-Type: application/octet-stream` and binary file data.
+**PUT** to the `Location` URL with `Content-Type: <contentType>` (the same value as in `requiredHeaders`) and the binary file data.
 
 ### Step 4: Create Project
 
@@ -239,7 +241,7 @@ Generate AI-designed thumbnails from a source video. Rides the shared `/generati
 |-------|------|----------|-------------|
 | `jobType` | string | yes | Must be `"thumbnail"`. |
 | `sourceUri` | string | yes | Source video URL (same sources as `Create Project`). |
-| `referenceImageUri` | string | no | CDN URL of a reference image (face, brand asset). Pre-upload via `/upload-links` with `usecase: 'FreeToolMedia'` (see below). |
+| `referenceImageUri` | string | no | CDN URL of a reference image (face, brand asset). Pre-upload via `/upload-links-v2` with `usecase: 'FreeToolMedia'` (see below). |
 | `maskImageUri` | string | no | CDN URL of a mask image. Same upload flow. |
 | `prompt` | string | no | Text prompt steering the design (style, copy). |
 
@@ -260,17 +262,19 @@ When `status` is `CONCLUDED`, `result.generatedThumbnailUris[]` holds the downlo
 
 ### Reference / Mask Image Upload
 
-Same `/upload-links` endpoint as `Upload Video`, different `usecase`:
+Same `/upload-links-v2` endpoint as `Upload Video`, different `usecase`:
 
-**POST** `/upload-links`
+**POST** `/upload-links-v2`
 
 ```json
-{"usecase": "FreeToolMedia", "type": "Upload", "extension": "png"}
+{"type": "Upload", "domain": "Google", "usecase": "FreeToolMedia", "extension": "png", "fileName": "face.png"}
 ```
 
-Response: `{url, cdnUrl, ...}`
+Response: `{url, cdnUrl, contentType, requiredHeaders, ...}`
 
-Then perform the resumable GCS handshake (POST `url` with `x-goog-resumable: start`, PUT bytes to the returned `Location` URL), and use the original `cdnUrl` as `referenceImageUri` / `maskImageUri` in the job body.
+`extension` is required here: the server derives the file type from it (`png` -> `image/png`, `jpg` / `jpeg` -> `image/jpeg`) and answers `400` for an extension it has no type for.
+
+Then perform the resumable GCS handshake: POST `url` with every header in `requiredHeaders` plus `Content-Length: 0`, then PUT the bytes to the returned `Location` URL with `Content-Type: <contentType>`. Use the original `cdnUrl` as `referenceImageUri` / `maskImageUri` in the job body.
 
 ---
 

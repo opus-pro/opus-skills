@@ -22,7 +22,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 
-const SKILL_VERSION = "3.9.0";
+const SKILL_VERSION = "3.10.0";
 // Opus Lab Mixpanel project. A project token is publishable: it can write
 // events but not read any data.
 const MIXPANEL_TOKEN = "b89ed8f179ddc82bbe521bdbc55cc65d";

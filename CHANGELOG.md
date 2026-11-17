@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.10.0 — `opusclip` CLI: uploads use the v2 upload link
+
+- **`opusclip upload` and `opusclip thumbnail create --reference / --mask` keep working after the old upload-link API is removed.** They now get their link from `/upload-links-v2`, which fixes the file type on the server and returns the headers the upload must send; the CLI sends them. The previous CLI called `/upload-links`, which is deprecated and will stop working. Nothing changes in how you run either command.
+- **`references/api-reference.md` describes the v2 upload.** Upload Video and Reference / Mask Image Upload now use `/upload-links-v2` and send every header in `requiredHeaders` when starting the upload. The old example request body for Upload Video was also wrong and is fixed.
+- **The bundled CLI is rebuilt from current source**, so it also carries CLI changes that had not shipped yet: `post create` / `post schedule --board <id>` for Pinterest, `clip list --favorited` (only the clips you hearted), a warning that `--keywords` no longer has any effect (use `--prompt`), and an `opusclip-cli/<build>` User-Agent on API calls.
+- **Version.** All four manifests and the telemetry script now say `3.10.0`.
+
 ## 3.9.0 — `copy-video-style`: anonymous usage events
 
 - **Two checkpoint events.** The skill now ships `scripts/telemetry.mjs`, a zero-dependency Node script the agent runs twice per run: `copy_video.run_started` after the local scan (preflight result, missing tool, file or link reference) and `copy_video.delivered` at each hand-over (feedback rounds, output length bucket, aspect ratio, chosen elements, understanding, generation budget, generation, and the understanding job ID when one ran). `run_started` prints a run ID that `delivered` passes back, so the two pair up into a delivery rate.
